@@ -18,7 +18,6 @@ package com.android.systemui.statusbar.quickactions.popups.ui.compose
 
 import android.view.WindowManager
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -26,7 +25,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -107,23 +105,13 @@ fun PopupSurface(
     colorMode: Int = rememberPopupColorMode(),
     content: @Composable () -> Unit,
 ) {
-    val cameraClearance = LocalPopupCameraClearance.current
-    val body: @Composable () -> Unit = {
-        Box(Modifier.padding(top = cameraClearance)) { content() }
-    }
-    val mode =
-        if (cameraClearance > 0.dp && colorMode != POPUP_COLOR_MODE_BLUR) {
-            POPUP_COLOR_MODE_SOLID_BLACK
-        } else {
-            colorMode
-        }
-    when (mode) {
+    when (colorMode) {
         POPUP_COLOR_MODE_BLUR -> {
             Box(modifier = modifier.plainBlurBehind(shape).clip(shape)) {
                 CompositionLocalProvider(
                     LocalContentColor provides MaterialTheme.colorScheme.onSurface
                 ) {
-                    body()
+                    content()
                 }
             }
         }
@@ -134,7 +122,7 @@ fun PopupSurface(
                 shape = shape,
                 shadowElevation = shadowElevation,
                 modifier = modifier,
-            ) { body() }
+            ) { content() }
         }
         else -> {
             Surface(
@@ -143,12 +131,10 @@ fun PopupSurface(
                 shape = shape,
                 shadowElevation = shadowElevation,
                 modifier = modifier,
-            ) { body() }
+            ) { content() }
         }
     }
 }
-
-val LocalPopupCameraClearance = compositionLocalOf { 0.dp }
 
 private const val PLAIN_BLUR = -1
 private val PopupBlurRadius = 34.dp

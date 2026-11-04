@@ -38,7 +38,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -108,14 +107,8 @@ fun StatusBarPopup(
         cutout.boundingRectTop.takeUnless { it.isEmpty }?.bottom
     }
     val popupTopPx = chipBoundsInScreen?.top?.toInt()
-    val cameraClearance =
-        if (popupTopPx != null && cameraBottomPx != null) {
-            with(density) { (cameraBottomPx - popupTopPx).coerceAtLeast(0).toDp() }
-        } else {
-            0.dp
-        }
     val positionProvider =
-        remember(popupTopPx, statusBarHeightPx, edgePaddingPx) {
+        remember(popupTopPx, cameraBottomPx, statusBarHeightPx, edgePaddingPx) {
             object : PopupPositionProvider {
                 override fun calculatePosition(
                     anchorBounds: IntRect,
@@ -126,8 +119,9 @@ fun StatusBarPopup(
                     IntOffset(
                         x = anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2,
                         y =
-                            if (popupTopPx != null) popupTopPx - edgePaddingPx
-                            else anchorBounds.top + statusBarHeightPx,
+                            if (popupTopPx != null) {
+                                (popupTopPx - edgePaddingPx).coerceAtLeast(cameraBottomPx ?: 0)
+                            } else anchorBounds.top + statusBarHeightPx,
                     )
             }
         }
@@ -435,11 +429,7 @@ fun StatusBarPopup(
                         },
                         label = "island_popup_pager",
                     ) { chip ->
-                        CompositionLocalProvider(
-                            LocalPopupCameraClearance provides cameraClearance
-                        ) {
-                            IslandPopupContent(chip)
-                        }
+                        IslandPopupContent(chip)
                     }
                 }
             }
@@ -467,9 +457,7 @@ private fun IslandPopupContent(viewModel: PopupChipModel.Shown) {
                     verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
                 ) {
                     MediaControlPopup(model = model, useWaveform = useWaveform)
-                    CompositionLocalProvider(LocalPopupCameraClearance provides 0.dp) {
-                        LyricsCard(model = model)
-                    }
+                    LyricsCard(model = model)
                 }
             } else {
                 MediaControlPopup(model = model, useWaveform = useWaveform)
