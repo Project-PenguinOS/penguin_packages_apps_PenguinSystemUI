@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -267,7 +268,8 @@ private fun CosSeekBar(model: MediaControlChipModel, glow: Int, modifier: Modifi
         if (dragging) dragFraction else (model.positionMs.toFloat() / duration).coerceIn(0f, 1f)
     val thickness by
         animateDpAsState(if (dragging) 6.dp else 4.dp, tween(150, easing = CosMediaCard.Move))
-    Row(modifier.height(14.dp), verticalAlignment = Alignment.CenterVertically) {
+    // The row takes the times' own height, so they are not cut off at larger font sizes.
+    Row(modifier.heightIn(min = 14.dp), verticalAlignment = Alignment.CenterVertically) {
         CosTime((shownFraction * duration).toLong())
         Canvas(
             Modifier.weight(1f)
@@ -314,6 +316,7 @@ private fun CosTime(ms: Long) {
         text = "%d:%02d".format(seconds / 60, seconds % 60),
         color = CosMediaCard.Secondary,
         fontSize = 10.sp,
+        lineHeight = 14.sp,
         maxLines = 1,
     )
 }
