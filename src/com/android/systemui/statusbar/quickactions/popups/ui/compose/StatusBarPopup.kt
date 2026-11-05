@@ -36,6 +36,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.Composable
@@ -107,7 +108,9 @@ fun StatusBarPopup(
     pageDirection: Int = 1,
     onPage: (Int) -> Unit = {},
     cos: Boolean = false,
+    stackedChips: List<PopupChipModel.Shown>? = null,
 ) {
+    val stacked = stackedChips != null
     val density = Density(LocalContext.current)
     val statusBarHeightPx =
         with(density) { dimensionResource(R.dimen.status_bar_height).roundToPx() }
@@ -211,6 +214,7 @@ fun StatusBarPopup(
         val veil = remember { Animatable(0f) }
         val cosCornerPx = with(density) { CosCardCorner.toPx() }
         val blur = remember { Animatable(0f) }
+        var stackTopCardHeight by remember { mutableFloatStateOf(0f) }
         val colorMode = rememberPopupColorMode()
         val skipMotionOnDismiss = colorMode == POPUP_COLOR_MODE_BLUR
 
@@ -219,7 +223,13 @@ fun StatusBarPopup(
                 val chip = chipBoundsInScreen
                 val popup = popupBoundsInScreen
                 val fromX = if (chip != null && popup != null) chip.center.x - popup.center.x else 0f
-                val fromY = if (chip != null && popup != null) chip.center.y - popup.center.y else 0f
+                // A stack grows down from its top edge; a single card grows from its centre.
+                val fromY =
+                    when {
+                        chip == null || popup == null -> 0f
+                        stacked -> chip.center.y - popup.top - popup.width * 0.12f * 0.4f / 2f
+                        else -> chip.center.y - popup.center.y
+                    }
                 if (isVisible && popup != null) {
                     scaleX.snapTo(0.4f)
                     scaleY.snapTo(0.4f)
@@ -389,10 +399,13 @@ fun StatusBarPopup(
                                 else null
                             if (cos) {
                                 this.translationX = cardShiftX.value
-                                this.transformOrigin = TransformOrigin.Center
+                                this.transformOrigin =
+                                    if (stacked) TransformOrigin(0.5f, 0f) else TransformOrigin.Center
                                 val f = reveal.value
                                 this.clip = f < 1f
-                                if (this.clip) this.shape = CosRevealShape(f, cosCornerPx)
+                                if (this.clip) {
+                                    this.shape = CosRevealShape(f, cosCornerPx, anchorTop = stacked)
+                                }
                             } else {
                                 this.transformOrigin = transformOrigin
                             }
@@ -401,7 +414,21 @@ fun StatusBarPopup(
                             if (cos) {
                                 Modifier.drawWithContent {
                                     drawContent()
-                                    if (veil.value > 0f) drawRect(Color.Black, alpha = veil.value)
+                                    val v = veil.value
+                                    if (v > 0f) {
+                                        if (stacked) {
+                                            // Only the top card comes out of the island; the
+                                            // rest slide out from under it.
+                                            drawRoundRect(
+                                                Color.Black,
+                                                size = Size(size.width, stackTopCardHeight),
+                                                cornerRadius = CornerRadius(cosCornerPx),
+                                                alpha = v,
+                                            )
+                                        } else {
+                                            drawRect(Color.Black, alpha = v)
+                                        }
+                                    }
                                 }
                             } else {
                                 Modifier
@@ -465,6 +492,14 @@ fun StatusBarPopup(
                             )
                             .graphicsLayer { translationX = pageFollow.value }
                 ) {
+                    if (stackedChips != null) {
+                        IslandCardStack(
+                            chips = stackedChips,
+                            isVisible = isVisible,
+                            onTopCardHeight = { stackTopCardHeight = it },
+                        )
+                        return@Box
+                    }
                     AnimatedContent(
                         targetState = viewModel,
                         contentAlignment = Alignment.TopCenter,
@@ -495,9 +530,10 @@ private fun LayoutCoordinates.boundsInScreen(view: android.view.View): Rect {
     return boundsInRoot().translate(Offset(location[0].toFloat(), location[1].toFloat()))
 }
 
-/** Renders the per-feature card for [viewModel]; the swipe pager slides between these. */
+/** Renders the per-feature card for [viewModel]; the pager and the card stack show these. */
 @Composable
-private fun IslandPopupContent(viewModel: PopupChipModel.Shown) {
+internal fun IslandPopupContent(viewModel: PopupChipModel.Shown, fillWidth: Boolean = false) {
+    val cardModifier = if (fillWidth) Modifier.fillMaxWidth() else Modifier
     when (val popupContent = viewModel.popupContent) {
         is PopupContentModel.Media -> {
             val model = popupContent.model
@@ -508,8 +544,8 @@ private fun IslandPopupContent(viewModel: PopupChipModel.Shown) {
                     horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
                     verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
                 ) {
-                    MediaControlPopup(model = model, useWaveform = useWaveform)
-                    LyricsCard(model = model)
+                    MediaControlPopup(model = model, useWaveform = useWaveform, modifier = cardModifier)
+                    LyricsCard(model = model, modifier = cardModifier)
                 }
             } else {
                 MediaControlPopup(model = model, useWaveform = useWaveform)
@@ -533,13 +569,17 @@ private fun IslandPopupContent(viewModel: PopupChipModel.Shown) {
 
 private val PopupEdgePadding = 8.dp
 
-private val CosCardEase = CubicBezierEasing(0.33f, 0f, 0.67f, 1f)
+internal val CosCardEase = CubicBezierEasing(0.33f, 0f, 0.67f, 1f)
 private val CosCardMove = CubicBezierEasing(0.6f, 0f, 0.1f, 1f)
-private val CosCardGrow = CubicBezierEasing(0.3f, 0f, 0.1f, 1f)
+internal val CosCardGrow = CubicBezierEasing(0.3f, 0f, 0.1f, 1f)
 private val CosCardCorner = 32.dp
 internal const val CosCardCloseMillis = 400
 
-private class CosRevealShape(private val fraction: Float, private val cornerPx: Float) : Shape {
+private class CosRevealShape(
+    private val fraction: Float,
+    private val cornerPx: Float,
+    private val anchorTop: Boolean = false,
+) : Shape {
     override fun createOutline(
         size: Size,
         layoutDirection: LayoutDirection,
@@ -549,7 +589,7 @@ private class CosRevealShape(private val fraction: Float, private val cornerPx: 
         val w = start + (size.width - start) * fraction
         val h = start + (size.height - start) * fraction
         val left = (size.width - w) / 2f
-        val top = (size.height - h) / 2f
+        val top = if (anchorTop) 0f else (size.height - h) / 2f
         val r = minOf(cornerPx, w / 2f, h / 2f)
         return Outline.Rounded(RoundRect(left, top, left + w, top + h, CornerRadius(r)))
     }
