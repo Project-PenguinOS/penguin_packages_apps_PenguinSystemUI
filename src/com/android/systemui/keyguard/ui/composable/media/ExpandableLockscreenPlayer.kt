@@ -10,11 +10,14 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -32,13 +35,16 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
 import com.android.systemui.media.remedia.ui.compose.MediaUiBehavior
 import com.android.systemui.media.remedia.ui.viewmodel.MediaViewModel
+import com.android.systemui.notifications.ui.composable.LocalLockscreenStackTopListener
 import com.android.systemui.penguin.LockscreenPlayer
 import com.android.systemui.res.R
 import javax.inject.Inject
+import kotlin.math.roundToInt
 
 private val PillMargin = 16.dp
 
@@ -140,11 +146,26 @@ class ExpandableLockscreenPlayer @Inject constructor() : LockscreenPlayer {
                     .then(collapseOnTap)
             )
         }
-        media()
-        notifications(
-            Modifier.weight(maxOf(1f - artWeight, 0.001f)).onSizeChanged {
-                notificationsHeight = it.height.toFloat()
+        // The notifications rest at the bottom, so the collapsed player moves down to sit on them
+        // instead of leaving the gap between the two.
+        var stackTop by remember { mutableFloatStateOf(Float.NaN) }
+        var slotTop by remember { mutableFloatStateOf(Float.NaN) }
+        Column(
+            Modifier.fillMaxWidth().offset {
+                val drop =
+                    if (stackTop.isNaN() || slotTop.isNaN()) 0f
+                    else (stackTop - slotTop).coerceAtLeast(0f)
+                IntOffset(0, (drop * notifications * (1f - expansion)).roundToInt())
             }
-        )
+        ) {
+            media()
+        }
+        CompositionLocalProvider(LocalLockscreenStackTopListener provides { stackTop = it }) {
+            notifications(
+                Modifier.weight(maxOf(1f - artWeight, 0.001f))
+                    .onSizeChanged { notificationsHeight = it.height.toFloat() }
+                    .onGloballyPositioned { slotTop = it.positionInWindow().y }
+            )
+        }
     }
 }
