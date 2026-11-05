@@ -93,6 +93,7 @@ import com.android.systemui.statusbar.quickactions.popups.ui.model.PopupContentM
 import com.android.systemui.statusbar.quickactions.screenrecord.ui.compose.ScreenRecordPopup
 import com.android.systemui.statusbar.quickactions.sharescreen.ui.compose.ShareScreenPrivacyIndicatorPopup
 import com.android.systemui.statusbar.quickactions.stopwatch.ui.compose.StopwatchPopup
+import kotlin.math.roundToInt
 import kotlinx.coroutines.coroutineScope
 import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings.POPUP_COLOR_MODE_BLUR
 import kotlinx.coroutines.launch
@@ -115,8 +116,10 @@ fun StatusBarPopup(
         cutout.boundingRectTop.takeUnless { it.isEmpty }?.bottom
     }
     val popupTopPx = chipBoundsInScreen?.top?.toInt()
+    // The capsule is drawn over the camera with a translation, away from where it is laid out.
+    val chipCenterX = chipBoundsInScreen?.center?.x
     val positionProvider =
-        remember(popupTopPx, cameraBottomPx, statusBarHeightPx, edgePaddingPx) {
+        remember(popupTopPx, chipCenterX, cameraBottomPx, statusBarHeightPx, edgePaddingPx) {
             object : PopupPositionProvider {
                 override fun calculatePosition(
                     anchorBounds: IntRect,
@@ -125,7 +128,16 @@ fun StatusBarPopup(
                     popupContentSize: IntSize,
                 ): IntOffset =
                     IntOffset(
-                        x = anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2,
+                        x =
+                            if (chipCenterX != null) {
+                                val maxX =
+                                    (windowSize.width - popupContentSize.width).coerceAtLeast(0)
+                                (chipCenterX - popupContentSize.width / 2f)
+                                    .roundToInt()
+                                    .coerceIn(0, maxX)
+                            } else {
+                                anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2
+                            },
                         y =
                             if (popupTopPx != null) {
                                 (popupTopPx - edgePaddingPx).coerceAtLeast(cameraBottomPx ?: 0)
