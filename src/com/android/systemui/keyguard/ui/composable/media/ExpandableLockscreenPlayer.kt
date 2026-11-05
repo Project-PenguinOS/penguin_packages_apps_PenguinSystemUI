@@ -80,6 +80,11 @@ constructor(iconsInteractor: NotificationIconsInteractor) : LockscreenPlayer {
         get() = LockscreenMediaExpansion.nowBarFraction
 
     @Composable
+    override fun ArtGestures() {
+        LockscreenArtGestures()
+    }
+
+    @Composable
     override fun NowBar(modifier: Modifier) {
         val notifications by
             nowBarNotifications.collectAsStateWithLifecycle<List<NowBarNotification>?>(null)

@@ -108,6 +108,9 @@ object LockscreenMediaExpansion {
 
     var nowBarBounds by mutableStateOf(Rect.Zero)
 
+    /** Where the artwork's cover goes, in window coordinates. */
+    var artBounds by mutableStateOf(Rect.Zero)
+
     internal var animateNextChange = false
 
     internal var animateNowBar = false

@@ -30,7 +30,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -151,8 +151,6 @@ fun LockscreenExpandedMediaArt(
     var tallFailed by remember(state.track) { mutableStateOf(false) }
     val track = state.track
     val cos = rememberCosFeature(CosFeature.LockscreenMedia)
-    // Folded into the now bar, the artwork stays a square cover: no full-screen video.
-    val folded by remember { derivedStateOf { state.nowBarShowsArt } }
     val lookupVisible = state.target && alpha() > 0f
     LaunchedEffect(
         state.artEnabled,
@@ -161,7 +159,6 @@ fun LockscreenExpandedMediaArt(
         lookupVisible,
         tallFailed,
         cos,
-        folded,
     ) {
         if (!state.artEnabled || !state.motionArtEnabled || track == null) {
             tallArt = null
@@ -175,12 +172,14 @@ fun LockscreenExpandedMediaArt(
         repeat(3) { attempt ->
             var square = if (cos) MotionArt.find(context, artist, title, MotionArt.Kind.SQUARE) else null
             val tall =
-                if (square != null || tallFailed || folded) null
+                if (square != null || tallFailed) null
                 else MotionArt.find(context, artist, title, MotionArt.Kind.TALL)
             if (tall == null && square == null && !cos) {
                 square = MotionArt.find(context, artist, title, MotionArt.Kind.SQUARE)
             }
             tallArt = tall
+            // The cover only hides behind a tall video that is still shown.
+            if (tall == null) tallRendering = false
             squareArt = square
             if (tall != null || square != null) return@LaunchedEffect
             if (attempt < 2) delay(15_000L * (attempt + 1))
@@ -267,15 +266,12 @@ fun LockscreenExpandedMediaArt(
 
         val gap = with(density) { CoverGap.toPx() }
         val rise = Offset(0f, unlocking() * height)
-        // Layouts without a reserved art slot (the wide tablet ones) get a cover of their own: in
-        // landscape on the start side, below the player; in portrait centred under it.
+        // Layouts without a reserved art slot (the wide tablet ones) get a cover of their own in the
+        // start column, beside the clock in the other one. Folded or not and in either orientation
+        // it keeps that slot, so it neither covers the clock nor moves with the fold.
         val reserved =
             if (state.artSlotBounds.isEmpty) {
-                if (width > height) {
-                    Rect(0.06f * width, 0.30f * height, 0.48f * width, 0.86f * height)
-                } else {
-                    Rect(0.12f * width, 0.30f * height, 0.88f * width, 0.66f * height)
-                }.translate(rise)
+                Rect(0.06f * width, 0.30f * height, 0.48f * width, 0.86f * height).translate(rise)
             } else {
                 state.artSlotBounds.translate(-origin + rise)
             }
@@ -299,6 +295,8 @@ fun LockscreenExpandedMediaArt(
                 bottom = top + side,
             )
         val from = state.thumbnailBounds.translate(-origin + rise)
+        val slotInWindow = slot.translate(origin)
+        SideEffect { state.artBounds = slotInWindow }
         if (slot.isEmpty || from.isEmpty) return@Box
         val rect =
             Rect(
