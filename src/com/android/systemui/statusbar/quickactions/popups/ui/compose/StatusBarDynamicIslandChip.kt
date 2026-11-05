@@ -18,6 +18,7 @@ package com.android.systemui.statusbar.quickactions.popups.ui.compose
 
 import android.view.DisplayCutout
 import android.view.HapticFeedbackConstants
+import android.view.View
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -34,6 +35,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.text.font.FontWeight
 import com.android.systemui.qs.composefragment.cosStatusGlow
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -733,6 +736,17 @@ data class DynamicIslandCutoutSpec(
 fun rememberDynamicIslandCutoutSpec(): DynamicIslandCutoutSpec {
     val density = LocalDensity.current
     val view = LocalView.current
+    var windowLayout by remember { mutableIntStateOf(0) }
+    DisposableEffect(view) {
+        val root = view.rootView
+        val listener =
+            View.OnLayoutChangeListener { _, l, t, r, b, oldL, oldT, oldR, oldB ->
+                if (r - l != oldR - oldL || b - t != oldB - oldT) windowLayout++
+            }
+        root.addOnLayoutChangeListener(listener)
+        onDispose { root.removeOnLayoutChangeListener(listener) }
+    }
+    @Suppress("UNUSED_EXPRESSION") windowLayout
     val displayCutout = view.rootWindowInsets?.displayCutout ?: view.display?.cutout
     val topCutout = displayCutout?.topBoundingRectOrNull()
     val rootWidthPx =
