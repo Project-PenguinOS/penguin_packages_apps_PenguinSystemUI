@@ -46,6 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -131,7 +132,10 @@ fun LockscreenMediaCard(
     if (cards.isEmpty()) return
     DisposableEffect(Unit) {
         LockscreenMediaExpansion.cardShown = true
-        onDispose { LockscreenMediaExpansion.cardShown = false }
+        onDispose {
+            LockscreenMediaExpansion.cardShown = false
+            LockscreenMediaExpansion.card = null
+        }
     }
     val pagerState = rememberPagerState(pageCount = { cards.size })
     LaunchedEffect(pagerState, cards.size) {
@@ -139,6 +143,7 @@ fun LockscreenMediaCard(
             .collect { if (it < cards.size) viewModel.onCardSelected(it) }
     }
     val selected = cards.getOrNull(pagerState.currentPage) ?: cards.first()
+    SideEffect { LockscreenMediaExpansion.card = selected }
     LaunchedEffect(selected.background) { LockscreenMediaExpansion.artwork = selected.background }
     LaunchedEffect(selected.subtitle, selected.title) {
         LockscreenMediaExpansion.track = selected.subtitle to selected.title
@@ -170,8 +175,10 @@ private fun MediaCardBody(card: MediaCardViewModel, isSelected: Boolean) {
     val blurAlpha = remember {
         {
             val state = LockscreenMediaExpansion
+            // The window blur is not part of the card's layer: it fades with the fold itself.
+            val folding = (1f - state.nowBarFraction * 2f).coerceAtLeast(0f)
             if (state.fraction > 0f || !state.mediaVisible) 0f
-            else min(state.lockscreenAlpha, state.cardAlpha)
+            else min(state.lockscreenAlpha, state.cardAlpha) * folding
         }
     }
     Expandable(
@@ -181,6 +188,10 @@ private fun MediaCardBody(card: MediaCardViewModel, isSelected: Boolean) {
     ) { expandable ->
         Box(
             Modifier.fillMaxWidth()
+                // Pulling the card down folds it and the notifications into the now bar.
+                .onPullDown({ LockscreenMediaExpansion.nowBarEnabled }) {
+                    LockscreenMediaExpansion.minimize()
+                }
                 .clip(RoundedCornerShape(CardCorner))
                 .then(
                     if (glass) Modifier
@@ -438,7 +449,7 @@ internal fun Artwork(artwork: CommonIcon?, modifier: Modifier) {
     }
 }
 
-private fun playPauseIcon(state: MediaSessionState) =
+internal fun playPauseIcon(state: MediaSessionState) =
     if (state == MediaSessionState.Playing) {
         R.drawable.ic_penguin_media_pause
     } else {

@@ -21,6 +21,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
@@ -38,23 +39,52 @@ import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.systemui.media.remedia.ui.compose.MediaUiBehavior
 import com.android.systemui.media.remedia.ui.viewmodel.MediaViewModel
 import com.android.systemui.notifications.ui.composable.LocalLockscreenStackTopListener
 import com.android.systemui.penguin.LockscreenPlayer
 import com.android.systemui.res.R
+import com.android.systemui.statusbar.notification.icon.domain.interactor.NotificationIconsInteractor
 import javax.inject.Inject
 import kotlin.math.roundToInt
+import kotlinx.coroutines.flow.map
 
 private val PillMargin = 16.dp
 
-class ExpandableLockscreenPlayer @Inject constructor() : LockscreenPlayer {
+class ExpandableLockscreenPlayer
+@Inject
+constructor(iconsInteractor: NotificationIconsInteractor) : LockscreenPlayer {
+
+    private val nowBarNotifications =
+        iconsInteractor
+            .filteredNotifSet(showDismissed = false, showRepliedMessages = false)
+            .map { icons ->
+                icons.map { icon ->
+                    // Pipeline keys are "user|package|id|tag|uid".
+                    NowBarNotification(
+                        key = icon.notifKey,
+                        packageName = icon.notifKey.split('|').getOrElse(1) { icon.notifKey },
+                        icon = icon.shelfIcon ?: icon.statusBarIcon,
+                    )
+                }
+            }
 
     override val isEnabled: Boolean
-        get() = LockscreenMediaExpansion.enabled
+        get() = LockscreenMediaExpansion.artEnabled
 
     override val expansion: Float
         get() = LockscreenMediaExpansion.fraction
+
+    override val nowBarFraction: Float
+        get() = LockscreenMediaExpansion.nowBarFraction
+
+    @Composable
+    override fun NowBar(modifier: Modifier) {
+        val notifications by
+            nowBarNotifications.collectAsStateWithLifecycle<List<NowBarNotification>?>(null)
+        LockscreenNowBar(notifications, modifier)
+    }
 
     @Composable
     override fun ObserveSettings() {
@@ -121,7 +151,8 @@ class ExpandableLockscreenPlayer @Inject constructor() : LockscreenPlayer {
             }
         val weighted = notificationsHeight + if (expansion > 0f) artHeight else 0f
         val pillShare = if (weighted > 0f) (pillSlot / weighted).coerceIn(0f, 0.5f) else 0.22f
-        val artWeight = expansion * (1f - pillShare * notifications)
+        val folded by remember { derivedStateOf { LockscreenMediaExpansion.nowBarFolded } }
+        val artWeight = expansion * (1f - pillShare * notifications * if (folded) 0f else 1f)
         val collapseOnTap =
             Modifier.pointerInput(Unit) { detectTapGestures { LockscreenMediaExpansion.collapse() } }
         Box(Modifier.collapsible { 1f - LockscreenMediaExpansion.fraction.within(0f, 0.6f) }) {
@@ -144,6 +175,10 @@ class ExpandableLockscreenPlayer @Inject constructor() : LockscreenPlayer {
                             Rect(it.positionInWindow(), it.size.toSize())
                     }
                     .then(collapseOnTap)
+                    // Pulled down again, the folded artwork goes and leaves the wallpaper.
+                    .onPullDown({ LockscreenMediaExpansion.nowBarShowsArt }) {
+                        LockscreenMediaExpansion.dismissArt()
+                    }
             )
         }
         // The notifications rest at the bottom, so the collapsed player moves down to sit on them

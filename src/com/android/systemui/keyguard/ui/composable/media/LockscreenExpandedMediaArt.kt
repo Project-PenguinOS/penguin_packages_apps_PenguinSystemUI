@@ -17,6 +17,7 @@
 package com.android.systemui.keyguard.ui.composable.media
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -29,6 +30,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,8 +69,11 @@ import java.io.File
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 
 private val CoveredBlur = 40.dp
+private const val ART_FADE_MS = 250
 
 private val CoverGap = 10.dp
 
@@ -99,8 +104,39 @@ fun LockscreenExpandedMediaArt(
                 }
             }
     }
+    // Swiped away, the artwork only fades: the layout lets go of it in one step once it is
+    // invisible, instead of playing the collapse back to the folded player on every frame.
     LaunchedEffect(Unit) {
-        snapshotFlow { state.fraction > 0f || (state.enabled && state.mediaVisible) }
+        if (state.artDismissing) {
+            state.artDismissed = true
+            state.artDismissing = false
+        }
+        state.artFade.snapTo(1f)
+        snapshotFlow { state.artDismissing }
+            .filter { it }
+            .collect {
+                state.artFade.animateTo(0f, tween(durationMillis = ART_FADE_MS))
+                state.artDismissed = true
+                state.artDismissing = false
+                snapshotFlow { state.fraction }.first { it == 0f }
+                state.artFade.snapTo(1f)
+            }
+    }
+    LaunchedEffect(Unit) {
+        snapshotFlow { state.nowBarTarget }
+            .distinctUntilChanged()
+            .collect { target ->
+                val value = if (target) 1f else 0f
+                if (state.animateNowBar) {
+                    state.animateNowBar = false
+                    state.nowBarProgress.animateTo(value, state.NowBarSpec)
+                } else {
+                    state.nowBarProgress.snapTo(value)
+                }
+            }
+    }
+    LaunchedEffect(Unit) {
+        snapshotFlow { state.fraction > 0f || (state.artEnabled && state.mediaVisible) }
             .distinctUntilChanged()
             .collect { DepthSubject.get()?.setExpandedMediaArtVisible(it) }
     }
@@ -115,9 +151,19 @@ fun LockscreenExpandedMediaArt(
     var tallFailed by remember(state.track) { mutableStateOf(false) }
     val track = state.track
     val cos = rememberCosFeature(CosFeature.LockscreenMedia)
+    // Folded into the now bar, the artwork stays a square cover: no full-screen video.
+    val folded by remember { derivedStateOf { state.nowBarShowsArt } }
     val lookupVisible = state.target && alpha() > 0f
-    LaunchedEffect(state.enabled, state.motionArtEnabled, track, lookupVisible, tallFailed, cos) {
-        if (!state.enabled || !state.motionArtEnabled || track == null) {
+    LaunchedEffect(
+        state.artEnabled,
+        state.motionArtEnabled,
+        track,
+        lookupVisible,
+        tallFailed,
+        cos,
+        folded,
+    ) {
+        if (!state.artEnabled || !state.motionArtEnabled || track == null) {
             tallArt = null
             squareArt = null
             tallRendering = false
@@ -129,7 +175,7 @@ fun LockscreenExpandedMediaArt(
         repeat(3) { attempt ->
             var square = if (cos) MotionArt.find(context, artist, title, MotionArt.Kind.SQUARE) else null
             val tall =
-                if (square != null || tallFailed) null
+                if (square != null || tallFailed || folded) null
                 else MotionArt.find(context, artist, title, MotionArt.Kind.TALL)
             if (tall == null && square == null && !cos) {
                 square = MotionArt.find(context, artist, title, MotionArt.Kind.SQUARE)
@@ -142,8 +188,8 @@ fun LockscreenExpandedMediaArt(
     }
     // Tablets draw the cover far larger than the session's bitmap: use the store's full-size one.
     var cover by remember(state.track) { mutableStateOf<ImageBitmap?>(null) }
-    LaunchedEffect(state.enabled, state.motionArtEnabled, track, lookupVisible) {
-        if (!state.enabled || !state.motionArtEnabled || track == null || !lookupVisible) {
+    LaunchedEffect(state.artEnabled, state.motionArtEnabled, track, lookupVisible) {
+        if (!state.artEnabled || !state.motionArtEnabled || track == null || !lookupVisible) {
             return@LaunchedEffect
         }
         if (cover == null) {
@@ -151,6 +197,10 @@ fun LockscreenExpandedMediaArt(
         }
     }
     val coverAlpha by animateFloatAsState(if (tallRendering) 0f else 1f, label = "cover")
+    // Folding in from the compact player, the artwork fades in with the pill.
+    val reveal = {
+        if (!state.expandedTarget && state.nowBarFraction > 0f) state.nowBarReveal else 1f
+    }
 
     var origin by remember { mutableStateOf(Offset.Zero) }
     var height by remember { mutableStateOf(0f) }
@@ -164,7 +214,7 @@ fun LockscreenExpandedMediaArt(
                 width = it.size.width.toFloat()
             }
             .graphicsLayer {
-                this.alpha = alpha()
+                this.alpha = alpha() * state.artFade.value
                 val radius = CoveredBlur.toPx() * covered()
                 renderEffect = if (radius > 0f) BlurEffect(radius, radius, TileMode.Clamp) else null
             }
@@ -177,13 +227,13 @@ fun LockscreenExpandedMediaArt(
             CosImmersiveArt(
                 artwork,
                 squareArt ?: tallArt,
-                Modifier.fillMaxSize().graphicsLayer { this.alpha = f },
+                Modifier.fillMaxSize().graphicsLayer { this.alpha = state.fraction * reveal() },
                 cover,
             )
             return@Box
         }
 
-        Box(Modifier.fillMaxSize().graphicsLayer { this.alpha = f }) {
+        Box(Modifier.fillMaxSize().graphicsLayer { this.alpha = state.fraction * reveal() }) {
             // Like iOS, the tall video fades into a blur of the cover rather than into black.
             Artwork(artwork, Modifier.fillMaxSize().blur(60.dp))
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)))
@@ -219,7 +269,7 @@ fun LockscreenExpandedMediaArt(
         val rise = Offset(0f, unlocking() * height)
         // Layouts without a reserved art slot (the wide tablet ones) get a cover of their own: in
         // landscape on the start side, below the player; in portrait centred under it.
-        val slot =
+        val reserved =
             if (state.artSlotBounds.isEmpty) {
                 if (width > height) {
                     Rect(0.06f * width, 0.30f * height, 0.48f * width, 0.86f * height)
@@ -228,6 +278,15 @@ fun LockscreenExpandedMediaArt(
                 }.translate(rise)
             } else {
                 state.artSlotBounds.translate(-origin + rise)
+            }
+        // Folded, the cover ends above the now bar, which sits lower than the player did.
+        val pill = state.nowBarBounds
+        val slot =
+            if (state.nowBarFolded && !pill.isEmpty) {
+                val bottom = pill.top - origin.y - gap + rise.y
+                Rect(reserved.left, reserved.top, reserved.right, minOf(reserved.bottom, bottom))
+            } else {
+                reserved
             }
         // Like iOS, centre the cover between the clock and the player.
         val side = minOf(slot.width, slot.height - 2f * gap).coerceAtLeast(0f)
@@ -254,7 +313,8 @@ fun LockscreenExpandedMediaArt(
             Modifier.offset { IntOffset(rect.left.roundToInt(), rect.top.roundToInt()) }
                 .size(size)
                 .graphicsLayer {
-                    this.alpha = lerp(1f, side.within(minSide * 0.6f, minSide), f) * coverAlpha
+                    this.alpha =
+                        lerp(1f, side.within(minSide * 0.6f, minSide), f) * coverAlpha * reveal()
                 }
                 .clip(RoundedCornerShape(lerp(10f, 22f, f).dp))
                 .pointerInput(Unit) { detectTapGestures { state.collapse() } }
