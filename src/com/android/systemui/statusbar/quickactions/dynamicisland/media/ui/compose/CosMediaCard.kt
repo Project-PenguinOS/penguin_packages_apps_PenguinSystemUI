@@ -5,6 +5,8 @@
 
 package com.android.systemui.statusbar.quickactions.dynamicisland.media.ui.compose
 
+import com.android.systemui.statusbar.quickactions.popups.ui.compose.PopupSurface
+import com.android.systemui.statusbar.quickactions.popups.ui.compose.islandGlassCards
 import android.content.Context
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
@@ -121,16 +123,32 @@ fun CosMediaCard(model: MediaControlChipModel, modifier: Modifier = Modifier) {
     val artwork = remember(model.artworkIcon) { (model.artworkIcon as? UiIcon.Loaded)?.drawable }
     val tint = rememberCosArtTint(artwork)
     val shape = RoundedCornerShape(CosMediaCard.Corner)
-    Column(
-        modifier =
-            modifier
-                .widthIn(min = 320.dp, max = 400.dp)
-                .clip(shape)
-                .background(CosMediaCard.Fill)
-                .background(tint)
-                .border(1.dp, CosMediaCard.Stroke, shape)
-                .padding(bottom = CosMediaCard.Margin)
-    ) {
+    if (islandGlassCards()) {
+        // Liquid glass: the frosted island glass, lightly tinted by the artwork.
+        PopupSurface(shape = shape, modifier = modifier.widthIn(min = 320.dp, max = 400.dp)) {
+            CosMediaCardContent(model, artwork, Modifier.background(tint))
+        }
+        return
+    }
+    CosMediaCardContent(
+        model,
+        artwork,
+        modifier
+            .widthIn(min = 320.dp, max = 400.dp)
+            .clip(shape)
+            .background(CosMediaCard.Fill)
+            .background(tint)
+            .border(1.dp, CosMediaCard.Stroke, shape),
+    )
+}
+
+@Composable
+private fun CosMediaCardContent(
+    model: MediaControlChipModel,
+    artwork: android.graphics.drawable.Drawable?,
+    modifier: Modifier,
+) {
+    Column(modifier = modifier.padding(bottom = CosMediaCard.Margin)) {
         Row(
             modifier =
                 Modifier.fillMaxWidth()

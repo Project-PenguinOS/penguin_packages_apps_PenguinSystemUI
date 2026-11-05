@@ -16,6 +16,10 @@
 
 package com.android.systemui.statusbar.quickactions.alarm.ui.compose
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Snooze
+import com.android.systemui.statusbar.quickactions.popups.ui.compose.IslandGlassCard
+import com.android.systemui.statusbar.quickactions.popups.ui.compose.islandGlassCards
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -72,6 +76,31 @@ fun AlarmPopup(
         label = "alarm_scale",
     )
 
+    if (islandGlassCards()) {
+        IslandGlassCard(
+            primary = model.fullTimeText,
+            secondary = listOf(model.title, model.dayText).filter { it.isNotBlank() }.joinToString(" · "),
+            glyph = {
+                StatusBarIcon(
+                    icon =
+                        Icon.Resource(
+                            resId = PenguinR.drawable.ic_dynamic_island_alarm,
+                            contentDescription = ContentDescription.Resource(R.string.status_bar_alarm),
+                        ),
+                    modifier =
+                        Modifier.size(32.dp).graphicsLayer {
+                            scaleX = pulseScale
+                            scaleY = pulseScale
+                        },
+                    tint = accent,
+                )
+            },
+            modifier = modifier,
+            onClick = model.onOpen,
+            primaryAction = model.actions.getOrNull(0)?.let { it.copy(vector = it.vector ?: Icons.Rounded.Snooze) },
+        )
+        return
+    }
     PopupSurface(
         shape = PopupShape,
         modifier =

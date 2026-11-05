@@ -16,6 +16,8 @@
 
 package com.android.systemui.statusbar.quickactions.stopwatch.ui.compose
 
+import com.android.systemui.statusbar.quickactions.popups.ui.compose.IslandGlassCard
+import com.android.systemui.statusbar.quickactions.popups.ui.compose.islandGlassCards
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -71,6 +73,26 @@ fun StopwatchPopup(
         }
     }
 
+    if (islandGlassCards()) {
+        IslandGlassCard(
+            primary = rememberStopwatchText(model),
+            secondary = model.title,
+            glyph = {
+                model.icon?.let { icon ->
+                    Icon(
+                        icon = icon,
+                        modifier = Modifier.size(32.dp).graphicsLayer { rotationZ = rotation.value },
+                        tint = accent,
+                    )
+                }
+            },
+            modifier = modifier,
+            onClick = model.onOpen,
+            primaryAction = model.actions.getOrNull(0),
+            secondaryAction = model.actions.getOrNull(1),
+        )
+        return
+    }
     PopupSurface(
         shape = PopupShape,
         modifier =

@@ -16,6 +16,11 @@
 
 package com.android.systemui.statusbar.quickactions.screenrecord.ui.compose
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Stop
+import com.android.systemui.statusbar.quickactions.popups.shared.model.PopupActionModel
+import com.android.systemui.statusbar.quickactions.popups.ui.compose.IslandGlassCard
+import com.android.systemui.statusbar.quickactions.popups.ui.compose.islandGlassCards
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -79,6 +84,40 @@ fun ScreenRecordPopup(
         label = "rec_alpha",
     )
 
+    if (islandGlassCards()) {
+        IslandGlassCard(
+            primary =
+                when (model) {
+                    is ScreenRecordPopupModel.Starting -> model.secondsUntilStarted.toString()
+                    is ScreenRecordPopupModel.Recording ->
+                        rememberElapsedDurationText(model.startElapsedRealtimeMs)
+                },
+            secondary = stringResource(R.string.screenrecord_ongoing_screen_only),
+            glyph = {
+                Box(
+                    modifier =
+                        Modifier.size(18.dp)
+                            .graphicsLayer {
+                                scaleX = pulseScale
+                                scaleY = pulseScale
+                                alpha = pulseAlpha
+                            }
+                            .background(accent, CircleShape)
+                )
+            },
+            modifier = modifier,
+            primaryAction =
+                (model as? ScreenRecordPopupModel.Recording)?.let {
+                    PopupActionModel(
+                        label = stringResource(R.string.screenrecord_stop_label),
+                        onClick = it.stopRecording,
+                        vector = Icons.Rounded.Stop,
+                    )
+                },
+            primaryActionColor = accent,
+        )
+        return
+    }
     PopupSurface(
         shape = PopupShape,
         modifier = modifier.widthIn(min = 280.dp, max = 360.dp),

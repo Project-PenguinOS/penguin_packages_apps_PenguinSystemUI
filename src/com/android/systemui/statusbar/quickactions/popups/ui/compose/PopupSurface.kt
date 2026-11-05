@@ -42,17 +42,24 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.android.axion.blur.AxBlurColors
 import com.android.internal.graphics.drawable.BackgroundBlurDrawable
+import com.android.systemui.qs.shared.style.LiquidGlassTune
+import com.android.systemui.qs.shared.style.liquidGlassEnabled
+import com.android.systemui.qs.shared.style.liquidGlassRim
 import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings.POPUP_COLOR_MODE_BLUR
 import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings.POPUP_COLOR_MODE_SOLID_BLACK
 import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings.observeDynamicIslandPopupColorMode
 import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings.readDynamicIslandPopupColorMode
 
 @Composable
-private fun Modifier.plainBlurBehind(shape: Shape): Modifier {
+private fun Modifier.plainBlurBehind(
+    shape: Shape,
+    tint: Int? = null,
+    radius: Dp = PopupBlurRadius,
+): Modifier {
     val view = LocalView.current
     val context = LocalContext.current
     val holder = remember(view) { arrayOfNulls<BackgroundBlurDrawable>(1) }
-    val overlayColor = remember(context) { AxBlurColors.surfaceLightTint(context) }
+    val overlayColor = tint ?: remember(context) { AxBlurColors.surfaceLightTint(context) }
     val blurEnabled =
         remember(context) {
             context.getSystemService(WindowManager::class.java)?.isCrossWindowBlurEnabled == true
@@ -63,7 +70,9 @@ private fun Modifier.plainBlurBehind(shape: Shape): Modifier {
         if (!blurEnabled || root == null) {
             drawOutline(
                 shape.createOutline(size, layoutDirection, this),
-                Color(overlayColor and 0x00FFFFFF or (0xCC shl 24)),
+                // Without blur a light glass tint would leave white text on white.
+                if (tint != null) GlassNoBlurFill
+                else Color(overlayColor and 0x00FFFFFF or (0xCC shl 24)),
             )
             return@drawBehind
         }
@@ -81,7 +90,7 @@ private fun Modifier.plainBlurBehind(shape: Shape): Modifier {
         blur.setVisible(true, false)
         blur.setMaterial(PLAIN_BLUR)
         blur.setColor(overlayColor)
-        blur.setBlurRadius(PopupBlurRadius.toPx().toInt())
+        blur.setBlurRadius(radius.toPx().toInt())
         blur.setCornerRadius(corner)
         blur.setBounds(0, 0, size.width.toInt(), size.height.toInt())
         drawIntoCanvas { blur.draw(it.nativeCanvas) }
@@ -105,6 +114,26 @@ fun PopupSurface(
     colorMode: Int = rememberPopupColorMode(),
     content: @Composable () -> Unit,
 ) {
+    if (liquidGlassEnabled()) {
+        // Liquid glass: frosted blur of what is behind, a light tint and the glass rim, like the
+        // ColorOS 17 live cards. Content is white on it in light and dark themes.
+        Box(
+            modifier =
+                modifier
+                    .plainBlurBehind(
+                        shape,
+                        // A light frost that keeps what is behind readable, as on ColorOS 17;
+                        // tune with debug.lg.island_blur (dp) and debug.lg.island_surface.
+                        tint = LiquidGlassTune.color("island_surface", 0x1AFFFFFF),
+                        radius = LiquidGlassTune.f("island_blur", 14f).dp,
+                    )
+                    .liquidGlassRim(shape)
+                    .clip(shape)
+        ) {
+            CompositionLocalProvider(LocalContentColor provides Color.White) { content() }
+        }
+        return
+    }
     when (colorMode) {
         POPUP_COLOR_MODE_BLUR -> {
             Box(modifier = modifier.plainBlurBehind(shape).clip(shape)) {
@@ -138,3 +167,4 @@ fun PopupSurface(
 
 private const val PLAIN_BLUR = -1
 private val PopupBlurRadius = 34.dp
+private val GlassNoBlurFill = Color(0xE62C2C2E)

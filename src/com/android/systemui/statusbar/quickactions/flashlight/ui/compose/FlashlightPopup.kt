@@ -16,6 +16,10 @@
 
 package com.android.systemui.statusbar.quickactions.flashlight.ui.compose
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.PowerSettingsNew
+import com.android.systemui.statusbar.quickactions.popups.ui.compose.IslandGlassCard
+import com.android.systemui.statusbar.quickactions.popups.ui.compose.islandGlassCards
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -68,6 +72,32 @@ fun FlashlightPopup(
     modifier: Modifier = Modifier,
 ) {
     val accent = IslandAccents.Flashlight
+    if (islandGlassCards()) {
+        IslandGlassCard(
+            primary = stringResource(PenguinR.string.dynamic_island_flashlight_enabled),
+            secondary = stringResource(R.string.quick_settings_flashlight_label),
+            glyph = {
+                StatusBarIcon(
+                    icon =
+                        Icon.Resource(
+                            resId = PenguinR.drawable.ic_dynamic_island_flashlight,
+                            contentDescription =
+                                ContentDescription.Resource(R.string.quick_settings_flashlight_label),
+                        ),
+                    modifier = Modifier.size(32.dp),
+                    tint = accent,
+                )
+            },
+            modifier = modifier,
+            primaryAction =
+                PopupActionModel(
+                    label = stringResource(R.string.flashlight_dialog_turn_off),
+                    onClick = model.turnOff,
+                    vector = Icons.Rounded.PowerSettingsNew,
+                ),
+        )
+        return
+    }
     PopupSurface(
         shape = PopupShape,
         modifier = modifier.widthIn(min = 280.dp, max = 340.dp),
