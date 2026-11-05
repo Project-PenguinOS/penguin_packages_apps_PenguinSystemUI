@@ -470,6 +470,7 @@ private fun UtilityStatusIslandChip(
                 rememberStopwatchText(popupContent.model)
             is PopupContentModel.Alarm -> viewModel.chipText.orEmpty()
             is PopupContentModel.Flashlight -> viewModel.chipText.orEmpty()
+            is PopupContentModel.LiveActivity -> viewModel.chipText.orEmpty()
             is PopupContentModel.SystemEvent -> if (popupContent.kind == SystemEventKind.Timer)
                 rememberTimerText(popupContent) else liveChipText
             else -> ""
@@ -796,6 +797,7 @@ private fun PopupContentModel.isUtilityStatusContent(): Boolean {
         this is PopupContentModel.Stopwatch ||
         this is PopupContentModel.Alarm ||
         this is PopupContentModel.Flashlight ||
+        this is PopupContentModel.LiveActivity ||
         (this is PopupContentModel.SystemEvent && kind in setOf(
             SystemEventKind.Notification, SystemEventKind.Ongoing, SystemEventKind.Unlock,
             SystemEventKind.Call, SystemEventKind.Bluetooth, SystemEventKind.Ringer,
@@ -815,6 +817,7 @@ private fun compactIslandWidthFor(content: PopupContentModel): Dp? {
         is PopupContentModel.Stopwatch -> CompactTimerIslandWidth
         is PopupContentModel.Alarm -> CompactAlarmIslandWidth
         is PopupContentModel.Flashlight -> CompactUtilityIslandWidth
+        is PopupContentModel.LiveActivity -> CompactTimerIslandWidth
         else -> null
     }
 }
@@ -826,6 +829,7 @@ private fun islandChipAccentFor(content: PopupContentModel): Color? =
         is PopupContentModel.Alarm -> IslandAccents.Alarm
         is PopupContentModel.Stopwatch -> IslandAccents.Stopwatch
         is PopupContentModel.ScreenRecord -> IslandAccents.Recording
+        is PopupContentModel.LiveActivity -> content.model.accent ?: IslandAccents.Timer
         else -> null
     }
 

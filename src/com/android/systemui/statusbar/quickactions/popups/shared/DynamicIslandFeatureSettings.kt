@@ -49,6 +49,8 @@ object DynamicIslandFeatureSettings {
     const val ALARMS = "status_bar_dynamic_island_alarms"
     const val FLASHLIGHT = "status_bar_dynamic_island_flashlight"
     const val STOPWATCH = "status_bar_dynamic_island_stopwatch"
+    /** Ongoing apps' promoted notifications (Live Updates: timers, navigation, deliveries). */
+    const val LIVE_UPDATES = "status_bar_dynamic_island_live_updates"
     const val LIVE_SCORES = "status_bar_dynamic_island_live_scores"
     const val SHOW_LYRICS = "status_bar_dynamic_island_lyrics"
     const val WIDTH_SCALE = "status_bar_dynamic_island_width_scale"

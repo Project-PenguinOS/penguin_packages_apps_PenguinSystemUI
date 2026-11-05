@@ -16,6 +16,7 @@
 
 package com.android.systemui.statusbar.quickactions.popups.ui.compose
 
+import com.android.systemui.statusbar.quickactions.liveactivity.ui.compose.LiveActivityPopup
 import android.view.ViewTreeObserver
 import android.view.WindowManager
 import android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
@@ -560,6 +561,7 @@ internal fun IslandPopupContent(viewModel: PopupChipModel.Shown, fillWidth: Bool
             )
         is PopupContentModel.Stopwatch -> StopwatchPopup(model = popupContent.model)
         is PopupContentModel.Alarm -> AlarmPopup(model = popupContent.model)
+        is PopupContentModel.LiveActivity -> LiveActivityPopup(model = popupContent.model)
         is PopupContentModel.SystemEvent -> SystemEventPopup(model = popupContent)
         // The AOSP privacy popups take their own view models here, which the island does not
         // carry, so those chips open nothing from it.

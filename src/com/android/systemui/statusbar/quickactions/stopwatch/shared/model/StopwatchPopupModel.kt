@@ -21,6 +21,8 @@ import com.android.systemui.statusbar.quickactions.popups.shared.model.PopupActi
 
 /** Popup content for stopwatch notifications surfaced inside the dynamic island. */
 data class StopwatchPopupModel(
+    /** The stopwatch notification this card was read from. */
+    val notificationKey: String? = null,
     val icon: Icon?,
     val title: String,
     val subtitle: String?,

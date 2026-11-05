@@ -16,6 +16,11 @@
 
 package com.android.systemui.statusbar.quickactions.stopwatch.ui.viewmodel
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Stop
 import android.app.Notification
 import android.os.SystemClock
 import android.text.format.DateUtils
@@ -203,6 +208,7 @@ private fun NotificationEntry.toStopwatchModel(
         )
 
     return StopwatchPopupModel(
+        notificationKey = key,
         icon = fallbackIcon,
         title = context.getString(PenguinR.string.dynamic_island_stopwatch_title),
         subtitle = appLabel.takeUnless { it.isBlank() },
@@ -338,16 +344,16 @@ private fun Notification.toStopwatchActions(context: Context): List<PopupActionM
     return if (isRunning(this)) {
         buildList {
             actions.getOrNull(0)?.actionIntent?.toSendAction()?.let {
-                add(PopupActionModel(context.getString(R.string.controls_media_button_pause), it))
+                add(PopupActionModel(context.getString(R.string.controls_media_button_pause), it, vector = Icons.Rounded.Pause))
             }
             actions.getOrNull(1)?.actionIntent?.toSendAction()?.let {
-                add(PopupActionModel(context.getString(PenguinR.string.dynamic_island_action_lap), it))
+                add(PopupActionModel(context.getString(PenguinR.string.dynamic_island_action_lap), it, vector = Icons.Rounded.Flag))
             }
         }
     } else {
         buildList {
             actions.getOrNull(0)?.actionIntent?.toSendAction()?.let {
-                add(PopupActionModel(context.getString(PenguinR.string.dynamic_island_action_resume), it))
+                add(PopupActionModel(context.getString(PenguinR.string.dynamic_island_action_resume), it, vector = Icons.Rounded.PlayArrow))
             }
             actions.getOrNull(1)?.actionIntent?.toSendAction()?.let {
                 add(
@@ -355,6 +361,7 @@ private fun Notification.toStopwatchActions(context: Context): List<PopupActionM
                         context.getString(PenguinR.string.dynamic_island_action_stop),
                         it,
                         emphasized = true,
+                        vector = Icons.Rounded.Stop,
                     )
                 )
             }

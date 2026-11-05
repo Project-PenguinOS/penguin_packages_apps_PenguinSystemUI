@@ -22,6 +22,7 @@ import com.android.systemui.statusbar.quickactions.flashlight.shared.model.Flash
 import com.android.systemui.common.shared.model.Icon
 import com.android.systemui.statusbar.quickactions.livescore.shared.model.LiveScoreChipModel
 import com.android.systemui.statusbar.quickactions.dynamicisland.media.shared.model.MediaControlChipModel
+import com.android.systemui.statusbar.quickactions.liveactivity.shared.model.LiveActivityPopupModel
 import com.android.systemui.statusbar.quickactions.screenrecord.shared.model.ScreenRecordPopupModel
 import com.android.systemui.statusbar.quickactions.stopwatch.shared.model.StopwatchPopupModel
 
@@ -41,6 +42,9 @@ sealed class PopupChipId(val value: String) {
     data object Flashlight : PopupChipId("Flashlight")
 
     data object Stopwatch : PopupChipId("Stopwatch")
+
+    /** An app's promoted ongoing notification, keyed by its notification key. */
+    data class LiveActivity(val key: String) : PopupChipId("LiveActivity:$key")
 
     data object Alarm : PopupChipId("Alarm")
 
@@ -122,6 +126,8 @@ sealed interface PopupContentModel {
     data class Stopwatch(val model: StopwatchPopupModel) : PopupContentModel
 
     data class Alarm(val model: AlarmPopupModel) : PopupContentModel
+
+    data class LiveActivity(val model: LiveActivityPopupModel) : PopupContentModel
 }
 
 /** Model for individual status bar popup chips. */

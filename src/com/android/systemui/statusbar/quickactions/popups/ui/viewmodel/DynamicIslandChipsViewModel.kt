@@ -16,6 +16,8 @@
 
 package com.android.systemui.statusbar.quickactions.popups.ui.viewmodel
 
+import com.android.systemui.statusbar.chips.ui.viewmodel.IslandChipClaims
+import com.android.systemui.statusbar.quickactions.liveactivity.ui.viewmodel.LiveActivityPopupChipsViewModel
 import android.content.Context
 import android.database.ContentObserver
 import android.os.Handler
@@ -79,6 +81,7 @@ constructor(
     flashlightChipFactory: FlashlightPopupChipViewModel.Factory,
     stopwatchChipFactory: StopwatchPopupChipViewModel.Factory,
     alarmChipFactory: AlarmPopupChipViewModel.Factory,
+    liveActivityChipsFactory: LiveActivityPopupChipsViewModel.Factory,
 ) : ExclusiveActivatable() {
 
     private val systemEventChips by lazy { systemEventChipsFactory.create() }
@@ -88,6 +91,7 @@ constructor(
     private val flashlightChip by lazy { flashlightChipFactory.create() }
     private val stopwatchChip by lazy { stopwatchChipFactory.create() }
     private val alarmChip by lazy { alarmChipFactory.create() }
+    private val liveActivityChips by lazy { liveActivityChipsFactory.create() }
     private var isDynamicIslandEnabled by mutableStateOf(readDynamicIslandEnabled())
     private var isLockscreenEnabled by
         mutableStateOf(
@@ -182,7 +186,40 @@ constructor(
                     bundle.alarm,
                     bundle.flashlight,
                 )
-                .filterIsInstance<PopupChipModel.Shown>()
+                .filterIsInstance<PopupChipModel.Shown>() +
+            liveChips()
+    }
+
+    /**
+     * Live Updates, minus the one the stopwatch card already shows: that card has the stopwatch's
+     * own controls.
+     */
+    private fun liveChips(): List<PopupChipModel.Shown> {
+        val stopwatchKey =
+            ((incomingPopupChipBundle.stopwatch as? PopupChipModel.Shown)?.popupContent
+                    as? PopupContentModel.Stopwatch)
+                ?.model
+                ?.notificationKey
+        return liveActivityChips.chips.filterNot {
+            (it.chipId as? PopupChipId.LiveActivity)?.key == stopwatchKey
+        }
+    }
+
+    /** What the island shows itself, so the stock status bar chips leave those out. */
+    private val islandClaims: IslandChipClaims.Claims by derivedStateOf {
+        if (!isDynamicIslandEnabled) return@derivedStateOf IslandChipClaims.Claims()
+        val present = presentChips()
+        IslandChipClaims.Claims(
+            notificationKeys =
+                present.mapNotNullTo(mutableSetOf()) { chip ->
+                    when (val content = chip.popupContent) {
+                        is PopupContentModel.LiveActivity -> content.model.key
+                        is PopupContentModel.Stopwatch -> content.model.notificationKey
+                        else -> null
+                    }
+                },
+            screenRecord = present.any { it.chipId == PopupChipId.ScreenRecord },
+        )
     }
 
     private fun hideChip(id: PopupChipId) {
@@ -239,7 +276,8 @@ constructor(
             }
 
         val openApp = if (isOnLockscreen) null else foregroundPackage
-        (systemEventChips.chips + candidateChips.filterIsInstance<PopupChipModel.Shown>())
+        (systemEventChips.chips + candidateChips.filterIsInstance<PopupChipModel.Shown>() +
+                liveChips())
             .filter { it.ownerPackage == null || it.ownerPackage != openApp }
             .filterNot { chip ->
                 chip.chipId in hiddenChips && hiddenChips[chip.chipId] == chip.hideKey()
@@ -365,10 +403,16 @@ constructor(
             launch { flashlightChip.activate() }
             launch { stopwatchChip.activate() }
             launch { alarmChip.activate() }
+            launch { liveActivityChips.activate() }
+            launch {
+                snapshotFlow { islandClaims }
+                    .collect { IslandChipClaims.update(it) }
+            }
             try {
                 awaitCancellation()
             } finally {
                 showPopup(null)
+                IslandChipClaims.update(IslandChipClaims.Claims())
                 TaskStackChangeListeners.getInstance().unregisterTaskStackListener(taskStackListener)
                 userTracker.removeCallback(userChangedCallback)
                 context.contentResolver.unregisterContentObserver(dynamicIslandObserver)
