@@ -112,13 +112,14 @@ fun MyUiConnectivityCard(tiles: List<TileViewModel>, modifier: Modifier = Modifi
 @Composable
 private fun MyUiCardRow(tile: TileViewModel) {
     val (uiState, icon) = rememberTileState(tile)
+    val details = LocalQsTileDetails.current
     val active = uiState.visualState == Tile.STATE_ACTIVE
     Row(
         modifier =
             Modifier.fillMaxWidth()
                 .myUiClickable(
-                    onClick = { tile.primaryAction(uiState) },
-                    onLongClick = { tile.settingsClick(null) },
+                    onClick = { tile.primaryAction(uiState, details) },
+                    onLongClick = { tile.detailsOrSettings(uiState, details) },
                 )
                 .padding(horizontal = 12.dp, vertical = 6.dp),
         horizontalArrangement = spacedBy(12.dp),
@@ -178,6 +179,7 @@ fun MyUiCardSpecs(tiles: List<TileViewModel>): Set<com.android.systemui.qs.pipel
 @Composable
 fun MyUiTile(tile: TileViewModel, modifier: Modifier = Modifier) {
     val (uiState, icon) = rememberTileState(tile)
+    val details = LocalQsTileDetails.current
     val active = uiState.visualState == Tile.STATE_ACTIVE
     val content = if (active) activeContent() else MaterialTheme.colorScheme.onSurface
     Column(
@@ -191,8 +193,8 @@ fun MyUiTile(tile: TileViewModel, modifier: Modifier = Modifier) {
                 )
                 .glassRim(RoundedCornerShape(TileCorner))
                 .myUiClickable(
-                    onClick = { tile.primaryAction(uiState) },
-                    onLongClick = { tile.settingsClick(null) },
+                    onClick = { tile.primaryAction(uiState, details) },
+                    onLongClick = { tile.detailsOrSettings(uiState, details) },
                 )
                 .padding(8.dp),
         verticalArrangement = spacedBy(8.dp, Alignment.CenterVertically),

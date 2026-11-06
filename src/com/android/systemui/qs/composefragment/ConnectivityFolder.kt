@@ -70,7 +70,9 @@ import com.android.systemui.common.shared.model.Icon
 import com.android.compose.modifiers.thenIf
 import com.android.systemui.common.ui.compose.Icon
 import com.android.systemui.plugins.qs.QSTile
+import com.android.systemui.qs.flags.QsDetailedView
 import com.android.systemui.qs.panels.ui.compose.TileListener
+import com.android.systemui.qs.panels.ui.viewmodel.DetailsViewModel
 import com.android.systemui.qs.panels.ui.viewmodel.IconProvider
 import com.android.systemui.qs.panels.ui.viewmodel.TileUiState
 import com.android.systemui.qs.panels.ui.viewmodel.TileViewModel
@@ -257,12 +259,13 @@ private fun Modifier.folderClickable(
 @Composable
 private fun Modifier.folderTileClickable(tile: TileViewModel, uiState: TileUiState): Modifier {
     val resolver = LocalContext.current.contentResolver
+    val details = LocalQsTileDetails.current
     return folderClickable(
         onClick = {
             resolver.recordFolderUse(tile.spec.spec)
-            tile.primaryAction(uiState)
+            tile.primaryAction(uiState, details)
         },
-        onLongClick = { tile.settingsClick(null) },
+        onLongClick = { tile.detailsOrSettings(uiState, details) },
     )
 }
 
@@ -710,6 +713,33 @@ fun connectivityFolderEnabled(): Boolean {
     return enabled
 }
 
-internal fun TileViewModel.primaryAction(uiState: TileUiState) {
-    if (uiState.handlesToggleClick) toggleClick() else mainClick(null)
+/** Lets the styled panels open a tile's details (Wi-Fi networks, Bluetooth devices...). */
+val LocalQsTileDetails = compositionLocalOf<DetailsViewModel?> { null }
+
+private fun TileViewModel.showDetails(details: DetailsViewModel?): Boolean =
+    QsDetailedView.isEnabled && details?.onTileClicked(spec) == true
+
+/** Toggles a toggle tile; any other tile opens its details, or does its own click without. */
+internal fun TileViewModel.primaryAction(uiState: TileUiState, details: DetailsViewModel? = null) {
+    if (uiState.handlesToggleClick) toggleClick() else if (!showDetails(details)) mainClick(null)
+}
+
+/**
+ * The stock small tile long-press: a dual target tile (Wi-Fi, Bluetooth, torch level...) opens its
+ * details or dialog, any other tile its settings page.
+ */
+internal fun TileViewModel.detailsOrSettings(uiState: TileUiState, details: DetailsViewModel?) {
+    if (showDetails(details)) return
+    if (uiState.handlesToggleClick) mainClick(null) else settingsClick(null)
+}
+
+/** Opens a dual target tile's details or dialog; any other tile does its primary action. */
+internal fun TileViewModel.detailsOrPrimary(uiState: TileUiState, details: DetailsViewModel?) {
+    if (showDetails(details)) return
+    if (uiState.handlesToggleClick) mainClick(null) else primaryAction(uiState)
+}
+
+/** Opens the tile's details, or does its own click when it has none. */
+internal fun TileViewModel.detailsOrMain(details: DetailsViewModel?) {
+    if (!showDetails(details)) mainClick(null)
 }

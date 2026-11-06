@@ -109,6 +109,7 @@ import com.android.systemui.qs.composefragment.BrightnessLayout
 import com.android.systemui.qs.composefragment.ColorOsEditor
 import com.android.systemui.qs.composefragment.VolumeLayout
 import com.android.systemui.qs.composefragment.ui.GridAnchor
+import com.android.systemui.qs.composefragment.LocalQsTileDetails
 import com.android.systemui.qs.flags.QsDetailedView
 import com.android.systemui.qs.panels.ui.compose.EditMode
 import com.android.systemui.qs.panels.ui.compose.TileDetails
@@ -347,6 +348,7 @@ fun ContentScope.StyledOverlayHost(
     CompositionLocalProvider(
         LocalGlassBlurAllowed provides allowed,
         LocalGlassBlurAlpha provides fade,
+        LocalQsTileDetails provides containerViewModel.detailsViewModel,
     ) {
         Box(Modifier.graphicsLayer { alpha = launchFade }, propagateMinConstraints = true) {
             if (darkGlass) PenguinGridTheme(content) else content()

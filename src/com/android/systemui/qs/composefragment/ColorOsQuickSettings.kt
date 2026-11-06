@@ -194,6 +194,7 @@ fun ColorOsTopRows(
 @Composable
 private fun ColorOsConnectionPill(tile: TileViewModel) {
     val (uiState, icon) = rememberTileState(tile)
+    val details = LocalQsTileDetails.current
     val active = uiState.visualState == Tile.STATE_ACTIVE
     val interaction = remember { MutableInteractionSource() }
     Row(
@@ -205,14 +206,24 @@ private fun ColorOsConnectionPill(tile: TileViewModel) {
                 .combinedClickable(
                     interactionSource = interaction,
                     indication = null,
-                    onClick = { tile.primaryAction(uiState) },
-                    onLongClick = { tile.settingsClick(null) },
+                    // Like a large stock tile: the label opens the list, the circle toggles.
+                    onClick = { tile.detailsOrPrimary(uiState, details) },
+                    onLongClick = { tile.detailsOrSettings(uiState, details) },
                 )
                 .padding(start = 10.dp, end = 14.dp),
         horizontalArrangement = spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ColorOsCircle(icon, active, 46.dp, colorOsActiveTint(tile.spec.spec), tile.spec.spec)
+        Box(
+            Modifier.clip(CircleShape).clickable(
+                interactionSource = interaction,
+                indication = null,
+            ) {
+                tile.primaryAction(uiState)
+            }
+        ) {
+            ColorOsCircle(icon, active, 46.dp, colorOsActiveTint(tile.spec.spec), tile.spec.spec)
+        }
         Column(Modifier.weight(1f)) {
             Text(
                 text = uiState.label,
@@ -538,6 +549,7 @@ fun ColorOsTileGrid(tiles: List<TileViewModel>, modifier: Modifier = Modifier) {
 @Composable
 private fun ColorOsTile(tile: TileViewModel, modifier: Modifier = Modifier) {
     val (uiState, icon) = rememberTileState(tile)
+    val details = LocalQsTileDetails.current
     val context = LocalContext.current
     val active = uiState.visualState == Tile.STATE_ACTIVE
     val unavailable = uiState.visualState == Tile.STATE_UNAVAILABLE
@@ -560,9 +572,9 @@ private fun ColorOsTile(tile: TileViewModel, modifier: Modifier = Modifier) {
                                 )
                             )
                         }
-                        tile.primaryAction(uiState)
+                        tile.primaryAction(uiState, details)
                     },
-                    onLongClick = { tile.settingsClick(null) },
+                    onLongClick = { tile.detailsOrSettings(uiState, details) },
                 ),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

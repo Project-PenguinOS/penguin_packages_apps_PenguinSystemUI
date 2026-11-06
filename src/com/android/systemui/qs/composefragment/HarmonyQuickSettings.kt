@@ -169,6 +169,7 @@ private fun HarmonyNetworkCard(
     dropDown: Boolean = false,
 ) {
     val (uiState, icon) = rememberTileState(tile)
+    val details = LocalQsTileDetails.current
     val active = uiState.visualState == Tile.STATE_ACTIVE
     Row(
         modifier =
@@ -176,8 +177,8 @@ private fun HarmonyNetworkCard(
                 .fillMaxWidth()
                 .harmonyCard()
                 .combinedClickable(
-                    onClick = { tile.primaryAction(uiState) },
-                    onLongClick = { tile.settingsClick(null) },
+                    onClick = { tile.primaryAction(uiState, details) },
+                    onLongClick = { tile.detailsOrSettings(uiState, details) },
                 )
                 .padding(start = 12.dp, end = 8.dp),
         horizontalArrangement = spacedBy(10.dp),
@@ -205,7 +206,7 @@ private fun HarmonyNetworkCard(
         if (dropDown) {
             Box(
                 modifier =
-                    Modifier.size(32.dp).clip(CircleShape).clickable { tile.mainClick(null) },
+                    Modifier.size(32.dp).clip(CircleShape).clickable { tile.detailsOrMain(details) },
                 contentAlignment = Alignment.Center,
             ) {
                 MaterialIcon(
@@ -302,11 +303,12 @@ fun HarmonyTogglesCard(
 @Composable
 private fun HarmonyToggle(tile: TileViewModel, labelled: Boolean, modifier: Modifier = Modifier) {
     val (uiState, icon) = rememberTileState(tile)
+    val details = LocalQsTileDetails.current
     Column(
         modifier =
             modifier.combinedClickable(
-                onClick = { tile.primaryAction(uiState) },
-                onLongClick = { tile.settingsClick(null) },
+                onClick = { tile.primaryAction(uiState, details) },
+                onLongClick = { tile.detailsOrSettings(uiState, details) },
             ),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = spacedBy(6.dp),
@@ -330,13 +332,14 @@ fun HarmonyCastCard(tiles: List<TileViewModel>, modifier: Modifier = Modifier) {
     val cast = remember(tiles) { tiles.firstOrNull { it.spec.spec == CastSpec } } ?: return
     ListenTo(listOf(cast))
     val (uiState, icon) = rememberTileState(cast)
+    val details = LocalQsTileDetails.current
     val active = uiState.visualState == Tile.STATE_ACTIVE
     Column(
         modifier =
             modifier
                 .fillMaxWidth()
                 .harmonyCard()
-                .clickable { cast.mainClick(null) }
+                .clickable { cast.detailsOrMain(details) }
                 .padding(16.dp),
         verticalArrangement = spacedBy(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -399,11 +402,12 @@ private fun HarmonyDeviceCard(
     status: String,
     icon: Icon,
 ) {
+    val details = LocalQsTileDetails.current
     Row(
         modifier =
             Modifier.fillMaxWidth()
                 .harmonyCard()
-                .clickable { tile.mainClick(null) }
+                .clickable { tile.detailsOrMain(details) }
                 .padding(16.dp),
         horizontalArrangement = spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,

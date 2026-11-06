@@ -176,6 +176,7 @@ fun OneUiQuickSettingsPanel(
 @Composable
 private fun OneUiPill(tile: TileViewModel, modifier: Modifier = Modifier) {
     val (uiState, icon) = rememberTileState(tile)
+    val details = LocalQsTileDetails.current
     val active = uiState.visualState == Tile.STATE_ACTIVE
     Row(
         modifier =
@@ -183,8 +184,8 @@ private fun OneUiPill(tile: TileViewModel, modifier: Modifier = Modifier) {
                 .glassPress()
                 .oneUiCard(OneUiPillCorner)
                 .combinedClickable(
-                    onClick = { tile.primaryAction(uiState) },
-                    onLongClick = { tile.settingsClick(null) },
+                    onClick = { tile.primaryAction(uiState, details) },
+                    onLongClick = { tile.detailsOrSettings(uiState, details) },
                 )
                 .padding(start = 12.dp, end = 16.dp),
         horizontalArrangement = spacedBy(12.dp),
@@ -321,6 +322,7 @@ fun OneUiTogglesCard(
 @Composable
 private fun OneUiToggle(tile: TileViewModel, size: Dp, interactive: Boolean) {
     val (uiState, icon) = rememberTileState(tile)
+    val details = LocalQsTileDetails.current
     Box(
         modifier =
             Modifier.size(size)
@@ -329,8 +331,8 @@ private fun OneUiToggle(tile: TileViewModel, size: Dp, interactive: Boolean) {
                 .then(
                     if (interactive) {
                         Modifier.combinedClickable(
-                            onClick = { tile.primaryAction(uiState) },
-                            onLongClick = { tile.settingsClick(null) },
+                            onClick = { tile.primaryAction(uiState, details) },
+                            onLongClick = { tile.detailsOrSettings(uiState, details) },
                         )
                     } else {
                         Modifier
@@ -357,6 +359,7 @@ fun OneUiTileControl(
     } else {
         Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             val (uiState, icon) = rememberTileState(tile)
+            val details = LocalQsTileDetails.current
             Box(
                 Modifier.fillMaxHeight()
                     .aspectRatio(1f)
@@ -365,8 +368,8 @@ fun OneUiTileControl(
                     .then(
                         if (interactive) {
                             Modifier.combinedClickable(
-                                onClick = { tile.primaryAction(uiState) },
-                                onLongClick = { tile.settingsClick(null) },
+                                onClick = { tile.primaryAction(uiState, details) },
+                                onLongClick = { tile.detailsOrSettings(uiState, details) },
                             )
                         } else {
                             Modifier
@@ -396,14 +399,15 @@ private val OneUiDiscCell = 72.dp
 @Composable
 private fun OneUiRoundControl(tile: TileViewModel, size: Dp) {
     val (uiState, icon) = rememberTileState(tile)
+    val details = LocalQsTileDetails.current
     Box(
         modifier =
             Modifier.size(size)
                 .glassPress()
                 .clip(CircleShape)
                 .combinedClickable(
-                    onClick = { tile.primaryAction(uiState) },
-                    onLongClick = { tile.settingsClick(null) },
+                    onClick = { tile.primaryAction(uiState, details) },
+                    onLongClick = { tile.detailsOrSettings(uiState, details) },
                 ),
         contentAlignment = Alignment.Center,
     ) {
