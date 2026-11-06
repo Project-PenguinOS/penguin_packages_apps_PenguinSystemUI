@@ -81,7 +81,15 @@ internal object CosIsland {
     private val PressDown = CubicBezierEasing(0.4f, 0f, 0.2f, 1f)
     private val PressUp = CubicBezierEasing(0f, 0f, 0.2f, 1f)
 
-    fun height(hole: Dp): Dp = maxOf(MinHeight, hole + 4.dp)
+    /**
+     * Calls get a taller, wider pill: the proximity sensor sits by the camera, so the bigger pill
+     * lets a tap land away from it instead of blanking the screen mid-call.
+     */
+    val CallExtraHeight = 10.dp
+    val CallMinWidth = 150.dp
+
+    fun height(hole: Dp, tall: Boolean = false): Dp =
+        maxOf(MinHeight, hole + 4.dp) + if (tall) CallExtraHeight else 0.dp
 
     internal suspend fun press(scale: Animatable<Float, *>, down: Boolean) {
         if (down) scale.animateTo(0.98f, tween(200, easing = PressDown))
@@ -97,11 +105,12 @@ internal fun CosIslandShell(
     moons: Boolean,
     onGone: () -> Unit,
     modifier: Modifier = Modifier,
+    tall: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
     val holePx = with(density) { hole.toPx() }
-    val heightPx = with(density) { CosIsland.height(hole).toPx() }
+    val heightPx = with(density) { CosIsland.height(hole, tall).toPx() }
     val extraPx = with(density) { CosIsland.ExtraWidth.toPx() }
     val switchPx = with(density) { CosIsland.SwitchWidth.toPx() }
     val maxWidthPx = with(density) { CosIsland.MaxWidth.roundToPx() }
@@ -198,6 +207,13 @@ internal fun CosIslandShell(
                 }
                 busy = false
             }
+    }
+
+    // A chip that changes between a call and anything else changes height in place.
+    LaunchedEffect(heightPx) {
+        if (height.value > 0f && alpha.value > 0.5f) {
+            height.animateTo(heightPx, tween(300, easing = CosIsland.Move))
+        }
     }
 
     LaunchedEffect(Unit) {

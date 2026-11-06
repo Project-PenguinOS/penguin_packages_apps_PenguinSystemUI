@@ -83,6 +83,21 @@ data class BluetoothBatteryModel(
 
 data class ChargingDetailModel(val label: String, val value: String, val unit: String)
 
+/** The in-call card's buttons; a `null` action means the calling app doesn't offer it. */
+data class CallPopupModel(
+    val incoming: Boolean,
+    val connected: Boolean,
+    val photo: Icon?,
+    val onAnswer: (() -> Unit)?,
+    val onDecline: (() -> Unit)?,
+    val onEnd: (() -> Unit)?,
+    val speakerOn: Boolean,
+    val onSpeaker: (() -> Unit)?,
+    val muted: Boolean,
+    val onMute: (() -> Unit)?,
+    val onOpen: (() -> Unit)?,
+)
+
 /** Rich popup contents associated with a status bar chip. */
 sealed interface PopupContentModel {
     data class SystemEvent(
@@ -105,6 +120,7 @@ sealed interface PopupContentModel {
         val image: Icon? = null,
         val bluetoothBatteries: List<BluetoothBatteryModel> = emptyList(),
         val chargingDetails: List<ChargingDetailModel> = emptyList(),
+        val call: CallPopupModel? = null,
     ) : PopupContentModel
 
     data object None : PopupContentModel

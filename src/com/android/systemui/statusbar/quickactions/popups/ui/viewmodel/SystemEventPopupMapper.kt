@@ -20,6 +20,7 @@ import com.android.systemui.statusbar.NotificationLockscreenUserManager
 import com.android.systemui.statusbar.quickactions.popups.shared.model.PopupActionModel
 import com.android.systemui.statusbar.quickactions.popups.shared.toActivityLaunchAction
 import com.android.systemui.statusbar.quickactions.popups.shared.toSendAction
+import com.android.systemui.statusbar.quickactions.popups.ui.model.CallPopupModel
 import com.android.systemui.statusbar.quickactions.popups.ui.model.BluetoothBatteryComponent
 import com.android.systemui.statusbar.quickactions.popups.ui.model.BluetoothBatteryModel
 import com.android.systemui.statusbar.quickactions.popups.ui.model.ChargingDetailModel
@@ -133,6 +134,7 @@ class SystemEventPopupMapper @Inject constructor(
         var timerPaused = false
         var indeterminate = false
         val actions = mutableListOf<PopupActionModel>()
+        var call: CallPopupModel? = null
         fun notificationActions(items: List<IslandEvent.NotificationAction>) {
             items.forEach { item ->
                 item.action.actionIntent.toSendAction()?.let {
@@ -231,6 +233,22 @@ class SystemEventPopupMapper @Inject constructor(
                 iconRes = android.R.drawable.sym_action_call
                 notificationActions(event.actions)
                 open(event.sbn.notification.contentIntent)
+                val controls = event.controls
+                call = CallPopupModel(
+                    incoming = event.callType == "Phone:incoming",
+                    connected = event.connected,
+                    photo = event.callerPhoto?.let { Icon.Loaded(it, null) },
+                    onAnswer = controls.answer.toSendAction(),
+                    onDecline = controls.decline.toSendAction(),
+                    onEnd = controls.hangUp.toSendAction(),
+                    speakerOn = controls.speakerOn == true,
+                    onSpeaker = controls.speaker.toSendAction(),
+                    muted = controls.muted == true,
+                    onMute = controls.mute.toSendAction(),
+                    onOpen = event.sbn.notification.contentIntent.toActivityLaunchAction(
+                        activityStarter, activityIntentHelper, lockscreenUserManager,
+                        keyguardStateController),
+                )
                 (event.callerName ?: event.number ?: context.getString(PenguinR.string.dynamic_island_event_call)) to
                     (event.sbn.notification.extras.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString().orEmpty())
             }
@@ -362,6 +380,7 @@ class SystemEventPopupMapper @Inject constructor(
                 image = image,
                 bluetoothBatteries = bluetoothBatteries,
                 chargingDetails = chargingDetails.takeIf { event is IslandEvent.Charging }.orEmpty(),
+                call = call,
             ),
         )
     }

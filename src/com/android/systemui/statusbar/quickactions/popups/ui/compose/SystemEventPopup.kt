@@ -82,6 +82,10 @@ private val EventPopupShape = RoundedCornerShape(32.dp)
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SystemEventPopup(model: PopupContentModel.SystemEvent, modifier: Modifier = Modifier) {
+    model.call?.let {
+        CallIslandCard(model, it, modifier)
+        return
+    }
     val accent = model.kind.accent
     val isMessage = model.kind == SystemEventKind.Notification || model.kind == SystemEventKind.Ongoing
     val isMedia = model.kind == SystemEventKind.NowPlaying

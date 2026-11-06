@@ -16,6 +16,7 @@
 
 package com.android.systemui.statusbar.quickactions.popups.ui.viewmodel
 
+import com.android.systemui.statusbar.chips.call.ui.viewmodel.CallChipViewModel
 import com.android.systemui.statusbar.chips.ui.viewmodel.IslandChipClaims
 import com.android.systemui.statusbar.quickactions.liveactivity.ui.viewmodel.LiveActivityPopupChipsViewModel
 import android.content.Context
@@ -212,10 +213,15 @@ constructor(
         IslandChipClaims.Claims(
             notificationKeys =
                 present.mapNotNullTo(mutableSetOf()) { chip ->
+                    val eventId = (chip.chipId as? PopupChipId.SystemEvent)?.eventId
                     when (val content = chip.popupContent) {
                         is PopupContentModel.LiveActivity -> content.model.key
                         is PopupContentModel.Stopwatch -> content.model.notificationKey
-                        else -> null
+                        // The stock call chip is keyed by its notification too.
+                        else ->
+                            eventId?.takeIf { it.startsWith(CALL_EVENT_PREFIX) }?.let {
+                                CallChipViewModel.KEY_PREFIX + it.removePrefix(CALL_EVENT_PREFIX)
+                            }
                     }
                 },
             screenRecord = present.any { it.chipId == PopupChipId.ScreenRecord },
@@ -444,3 +450,6 @@ constructor(
         fun create(): DynamicIslandChipsViewModel
     }
 }
+
+/** [com.android.systemui.islandevents.model.IslandEvent.Call] IDs: this prefix and the key. */
+private const val CALL_EVENT_PREFIX = "call_"

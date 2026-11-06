@@ -22,6 +22,15 @@
     <string name="dynamic_island_event_silent">Silent</string>
     <string name="dynamic_island_event_clipboard">Clipboard</string>
     <string name="dynamic_island_event_call">Call</string>
+    <!-- In-call island buttons and status. -->
+    <string name="dynamic_island_call_answer">Answer</string>
+    <string name="dynamic_island_call_decline">Decline</string>
+    <string name="dynamic_island_call_end">End call</string>
+    <string name="dynamic_island_call_speaker">Speaker</string>
+    <string name="dynamic_island_call_mute">Mute</string>
+    <string name="dynamic_island_call_more">Open call</string>
+    <string name="dynamic_island_call_incoming">Incoming call</string>
+    <string name="dynamic_island_call_calling">Calling…</string>
     <string name="dynamic_island_event_timer">Timer</string>
     <string name="dynamic_island_event_recording">Audio recording</string>
     <string name="dynamic_island_event_recent_apps">Recent apps</string>

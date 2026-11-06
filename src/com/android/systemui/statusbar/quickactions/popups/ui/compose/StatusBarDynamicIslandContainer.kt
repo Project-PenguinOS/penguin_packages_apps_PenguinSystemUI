@@ -64,6 +64,8 @@ import com.android.systemui.penguin.CosFeature
 import com.android.systemui.penguin.rememberCosFeature
 import com.android.systemui.statusbar.quickactions.popups.ui.model.PopupChipId
 import com.android.systemui.statusbar.quickactions.popups.ui.model.PopupChipModel
+import com.android.systemui.statusbar.quickactions.popups.ui.model.PopupContentModel
+import com.android.systemui.statusbar.quickactions.popups.ui.model.SystemEventKind
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -259,6 +261,7 @@ fun StatusBarDynamicIslandContainer(
                     visible = selectedChip != null && !popupVisible,
                     hole = cutoutSpec.holeSize,
                     moons = chips.size > 1,
+                    tall = chip.isCallChip(),
                     onGone = {
                         present = false
                         leaving[0] = null
@@ -507,3 +510,6 @@ private fun Modifier.swipeUpToHide(key: Any, slopPx: Float, onHide: () -> Unit):
             }
         }
     }
+
+internal fun PopupChipModel.Shown.isCallChip(): Boolean =
+    (popupContent as? PopupContentModel.SystemEvent)?.kind == SystemEventKind.Call

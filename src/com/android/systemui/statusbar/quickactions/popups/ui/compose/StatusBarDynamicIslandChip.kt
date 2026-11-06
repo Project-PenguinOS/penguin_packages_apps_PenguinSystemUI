@@ -223,8 +223,13 @@ fun StatusBarDynamicIslandChip(
                 .then(boundsModifier)
                 .then(
                     if (cos) {
-                        Modifier.height(CosIsland.height(cutoutSpec.holeSize))
-                            .widthIn(min = CosIsland.MinWidth, max = CosIsland.MaxWidth)
+                        Modifier.height(CosIsland.height(cutoutSpec.holeSize, viewModel.isCallChip()))
+                            .widthIn(
+                                min =
+                                    if (viewModel.isCallChip()) CosIsland.CallMinWidth
+                                    else CosIsland.MinWidth,
+                                max = CosIsland.MaxWidth,
+                            )
                             .background(cosArtTint)
                     } else {
                         Modifier.defaultMinSize(minHeight = 32.dp * heightScale)
@@ -265,6 +270,11 @@ fun StatusBarDynamicIslandChip(
             if (isMediaChip) Arrangement.SpaceBetween else Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // A call keeps its green handset and timer in every island look.
+        val callAccent =
+            (viewModel.popupContent as? PopupContentModel.SystemEvent)
+                ?.takeIf { it.kind == SystemEventKind.Call }
+                ?.let { IslandAccents.Calls }
         viewModel.icons.forEachIndexed { index, chipIcon ->
             val isArtworkLike =
                 index == 0 &&
@@ -312,7 +322,8 @@ fun StatusBarDynamicIslandChip(
                             Modifier
                         }
                     ),
-                tint = if (isArtworkLike || !chipIcon.tint) Color.Unspecified else chipContentColor,
+                tint = if (isArtworkLike || !chipIcon.tint) Color.Unspecified
+                    else callAccent ?: chipContentColor,
             )
         }
 
@@ -335,7 +346,7 @@ fun StatusBarDynamicIslandChip(
                         } else {
                             MaterialTheme.typography.labelLarge
                         },
-                    color = if (cos) CosIsland.TextColor else chipContentColor,
+                    color = callAccent ?: if (cos) CosIsland.TextColor else chipContentColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.widthIn(max = maxTextWidth),
@@ -482,7 +493,11 @@ private fun UtilityStatusIslandChip(
                     scaleX = collapseState.scaleX * pressScale
                     scaleY = collapseState.scaleY * pressScale
                 }
-                .defaultMinSize(minHeight = 32.dp * heightScale)
+                .defaultMinSize(
+                    minHeight =
+                        (32.dp + if (viewModel.isCallChip()) CosIsland.CallExtraHeight else 0.dp) *
+                            heightScale
+                )
                 .then(
                     if (isFlashlight) {
                         Modifier.width(IntrinsicSize.Max)
@@ -525,7 +540,8 @@ private fun UtilityStatusIslandChip(
                     )
                 } else {
                     Icon(icon = chipIcon.icon, modifier = Modifier.size(18.dp * widthScale),
-                        tint = if (chipIcon.tint) chipContentColor else Color.Unspecified)
+                        tint = if (chipIcon.tint) islandChipAccentFor(event) ?: chipContentColor
+                            else Color.Unspecified)
                 }
             } else {
                 CollapsedGlyphBadge(
@@ -557,7 +573,8 @@ private fun UtilityStatusIslandChip(
                 Text(
                     text = utilityText,
                     style = MaterialTheme.typography.labelLarge,
-                    color = chipContentColor,
+                    color = islandChipAccentFor(viewModel.popupContent)
+                        ?.takeIf { isSystemEvent } ?: chipContentColor,
                     maxLines = 1,
                     softWrap = !isFlashlight,
                     overflow = if (isFlashlight) TextOverflow.Clip else TextOverflow.Ellipsis,
@@ -830,6 +847,8 @@ private fun islandChipAccentFor(content: PopupContentModel): Color? =
         is PopupContentModel.Stopwatch -> IslandAccents.Stopwatch
         is PopupContentModel.ScreenRecord -> IslandAccents.Recording
         is PopupContentModel.LiveActivity -> content.model.accent ?: IslandAccents.Timer
+        is PopupContentModel.SystemEvent ->
+            IslandAccents.Calls.takeIf { content.kind == SystemEventKind.Call }
         else -> null
     }
 
