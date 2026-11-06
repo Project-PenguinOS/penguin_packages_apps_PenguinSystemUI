@@ -71,7 +71,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.unit.Constraints
@@ -196,14 +199,19 @@ private val WideReservedHeight = 96.dp
 private fun penguinCell(): Dp =
     LocalPenguinCell.current ?: dimensionResource(id = R.dimen.common_tile_default_tile_height)
 
+private val MinWideCell = 40.dp
+
 @Composable
 private fun wideCell(): Dp {
     val tile = dimensionResource(id = R.dimen.common_tile_default_tile_height)
     val rows = PenguinGrid.WIDE_ROWS
-    val fit =
-        (LocalConfiguration.current.screenHeightDp.dp - WideReservedHeight -
-            PenguinGridGap * (rows - 1)) / rows
-    return minOf(tile, fit)
+    // Size the rows to the height the landscape column really has left under its header and
+    // above the footer; the screen height alone leaves the last row under the footer on phones.
+    val available = LocalQsWideFit.current?.availableBodyPx
+    val space =
+        if (available != null) with(LocalDensity.current) { available.toDp() }
+        else LocalConfiguration.current.screenHeightDp.dp - WideReservedHeight
+    return minOf(tile, (space - PenguinGridGap * (rows - 1)) / rows).coerceAtLeast(MinWideCell)
 }
 
 internal val LocalPenguinGridLoose = compositionLocalOf { emptyList<TileSpec>() }
@@ -371,6 +379,7 @@ private fun ContentScope.PenguinGridPages(
     }
     val horizontalMargin = PenguinGridMargin
 
+    val wideFit = LocalQsWideFit.current.takeIf { wide }
     Box(
         modifier =
             modifier
@@ -379,6 +388,7 @@ private fun ContentScope.PenguinGridPages(
                     if (wide) Modifier.fillMaxWidth().wrapContentWidth().width(wideGridWidth())
                     else Modifier.fillMaxWidth()
                 )
+                .thenIf(wideFit != null) { Modifier.onSizeChanged { wideFit?.bodyPx = it.height } }
                 .sysuiResTag("quick_settings_panel")
     ) {
         Box(Modifier.fillMaxWidth().then(if (settled) Modifier.animateContentSize() else Modifier)) {
