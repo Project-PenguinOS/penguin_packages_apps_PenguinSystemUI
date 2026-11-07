@@ -380,7 +380,8 @@ constructor(
                     if (pkg in SPORTS_PACKAGES && handleSportsScore(sbn, extras, forceCapture = true)) return
                 }
 
-                if (sbn.isOngoing && isPromotable(sbn, extras)) {
+                // A player already has its own media chip.
+                if (sbn.isOngoing && !isMedia && isPromotable(sbn, extras)) {
                     if ("promoted_ongoing" !in disabledTypes) handlePromotedOngoing(sbn, extras, pkg)
                     return
                 }
@@ -394,11 +395,11 @@ constructor(
                             progressMax > 0 &&
                             progressRaw >= 0)
 
-                if (sbn.isOngoing && hasProgress) {
+                if (sbn.isOngoing && !isMedia && hasProgress) {
                     if ("promoted_ongoing" !in disabledTypes) handlePromotedOngoing(sbn, extras, pkg)
                     return
                 }
-                if (!sbn.isOngoing || updateVisibleNotifications) {
+                if (!sbn.isOngoing || isMedia || updateVisibleNotifications) {
                     _promotedOngoingEvents.value =
                         _promotedOngoingEvents.value.filter { it.sbn.key != sbn.key }
                 }

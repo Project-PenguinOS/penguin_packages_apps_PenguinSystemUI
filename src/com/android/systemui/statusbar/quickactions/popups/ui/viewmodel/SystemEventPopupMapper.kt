@@ -358,7 +358,13 @@ class SystemEventPopupMapper @Inject constructor(
             },
             colors = ColorsModel.DynamicIsland,
             contentDescription = description,
-            ownerPackage = (event as? IslandEvent.Call)?.sbn?.packageName,
+            // The island steps aside inside the app an activity belongs to.
+            ownerPackage = when (event) {
+                is IslandEvent.Call -> event.sbn.packageName
+                is IslandEvent.PromotedOngoing -> event.sbn.packageName
+                is IslandEvent.Sports -> event.sbn?.packageName
+                else -> null
+            },
             popupContent = PopupContentModel.SystemEvent(
                 kind = kind,
                 title = title,
