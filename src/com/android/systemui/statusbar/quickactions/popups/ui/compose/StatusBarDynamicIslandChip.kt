@@ -230,7 +230,8 @@ fun StatusBarDynamicIslandChip(
                                     else CosIsland.MinWidth,
                                 max = CosIsland.MaxWidth,
                             )
-                            .background(cosArtTint)
+                            // The tint is inside the capsule, not a box over its rounded ends.
+                            .background(cosArtTint, RoundedCornerShape(50))
                     } else {
                         Modifier.defaultMinSize(minHeight = 32.dp * heightScale)
                             .widthIn(
