@@ -57,7 +57,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -78,7 +77,6 @@ import androidx.compose.ui.layout.Measurable
 import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInRoot
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -92,8 +90,6 @@ import androidx.compose.ui.unit.dp
 import com.android.systemui.common.shared.model.Icon as IconModel
 import com.android.systemui.common.ui.compose.Icon
 import com.android.systemui.res.R
-import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings
-import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings.observeDynamicIslandScale
 import com.android.systemui.statusbar.quickactions.popups.ui.model.PopupChipModel
 import com.android.systemui.statusbar.quickactions.popups.ui.model.PopupContentModel
 import com.android.systemui.statusbar.quickactions.popups.ui.model.SystemEventKind
@@ -119,7 +115,6 @@ fun StatusBarDynamicIslandChip(
     val isMediaChip = viewModel.popupContent is PopupContentModel.Media
     val chipShape = RoundedCornerShape(50)
     val colors = viewModel.colors
-    val (widthScale, heightScale) = rememberDynamicIslandSizeScale()
     val chipContentColor =
         colors.chipContent(
             isPopupShown = viewModel.isPopupShown,
@@ -153,8 +148,6 @@ fun StatusBarDynamicIslandChip(
             viewModel = viewModel,
             onTap = hapticOnTap,
             cutoutSpec = cutoutSpec,
-            widthScale = widthScale,
-            heightScale = heightScale,
             chipContentColor = chipContentColor,
             chipOutline = chipOutline,
             modifier = modifier.then(boundsModifier),
@@ -162,7 +155,7 @@ fun StatusBarDynamicIslandChip(
         return
     }
 
-    val compactWidth = compactIslandWidthFor(viewModel.popupContent)?.times(widthScale)
+    val compactWidth = compactIslandWidthFor(viewModel.popupContent)
     val hasInlineTimer = viewModel.popupContent is PopupContentModel.Stopwatch
     val trailingDecorationWidth =
         when (val popupContent = viewModel.popupContent) {
@@ -185,7 +178,7 @@ fun StatusBarDynamicIslandChip(
             else -> 18.dp + (8.dp * (viewModel.icons.size - 1))
         }
     val maxTextWidth =
-        ((CompactIslandMaxWidth * widthScale) - 24.dp - leadingDecorationWidth - trailingDecorationWidth)
+        (CompactIslandMaxWidth - 24.dp - leadingDecorationWidth - trailingDecorationWidth)
             .coerceAtLeast(56.dp)
 
     val collapseState = rememberDynamicIslandCollapseState(viewModel.isPopupShown)
@@ -233,10 +226,10 @@ fun StatusBarDynamicIslandChip(
                             // The tint is inside the capsule, not a box over its rounded ends.
                             .background(cosArtTint, RoundedCornerShape(50))
                     } else {
-                        Modifier.defaultMinSize(minHeight = 32.dp * heightScale)
+                        Modifier.defaultMinSize(minHeight = 32.dp)
                             .widthIn(
                                 min = compactWidth ?: 0.dp,
-                                max = compactWidth ?: (CompactIslandMaxWidth * widthScale),
+                                max = compactWidth ?: CompactIslandMaxWidth,
                             )
                             .graphicsLayer {
                                 scaleX = collapseState.scaleX * pressScale
@@ -259,10 +252,10 @@ fun StatusBarDynamicIslandChip(
                         Modifier.padding(horizontal = CosIsland.Padding)
                     } else {
                         Modifier.padding(
-                                start = 8.dp * widthScale,
-                                end = 12.dp * widthScale,
-                                top = 7.dp * heightScale,
-                                bottom = 7.dp * heightScale,
+                                start = 8.dp,
+                                end = 12.dp,
+                                top = 7.dp,
+                                bottom = 7.dp,
                             )
                             .graphicsLayer { alpha = collapseState.contentAlpha }
                     }
@@ -407,8 +400,6 @@ private fun UtilityStatusIslandChip(
     viewModel: PopupChipModel.Shown,
     onTap: () -> Unit,
     cutoutSpec: DynamicIslandCutoutSpec,
-    widthScale: Float = 1f,
-    heightScale: Float = 1f,
     chipContentColor: Color,
     chipOutline: Color,
     modifier: Modifier = Modifier,
@@ -427,8 +418,8 @@ private fun UtilityStatusIslandChip(
     val hasBalancedSegments = isSystemEvent || isFlashlight
     val deviceImage = (viewModel.popupContent as? PopupContentModel.SystemEvent)
         ?.takeIf { it.kind == SystemEventKind.Bluetooth }?.image
-    val deviceImageSize = 20.dp * widthScale
-    val deviceImageSpace = if (deviceImage != null) deviceImageSize + 6.dp * widthScale else 0.dp
+    val deviceImageSize = 20.dp
+    val deviceImageSpace = if (deviceImage != null) deviceImageSize + 6.dp else 0.dp
     val omitCameraGap = when (val content = viewModel.popupContent) {
         is PopupContentModel.Stopwatch -> true
         is PopupContentModel.SystemEvent ->
@@ -447,28 +438,28 @@ private fun UtilityStatusIslandChip(
             isSystemEvent -> 12.dp
             isFlashlight -> 10.dp
             else -> 6.dp
-        }) * widthScale
+        })
     val eventTextWidth = if (isSystemEvent) {
         val measured = textMeasurer.measure(liveChipText,
             style = MaterialTheme.typography.labelLarge, maxLines = 1)
         with(density) { measured.size.width.toDp() } +
-            6.dp * widthScale + textEndPadding + deviceImageSpace
+            6.dp + textEndPadding + deviceImageSpace
     } else 0.dp
     val rightSegmentWidth =
         (when (viewModel.popupContent) {
             is PopupContentModel.Alarm -> 72.dp
             is PopupContentModel.SystemEvent -> 60.dp
             else -> 80.dp
-        } * widthScale).coerceAtLeast(eventTextWidth)
+        }).coerceAtLeast(eventTextWidth)
     val connectedIslandWidth = if (isSystemEvent) {
         rightSegmentWidth * 2 + cameraGapWidth
     } else
-        ((CompactUtilityConnectedIslandChromeWidth * widthScale) +
+        (CompactUtilityConnectedIslandChromeWidth +
                 cameraGapWidth +
                 rightSegmentWidth)
             .coerceIn(
-                (if (omitCameraGap) 0.dp else CompactUtilityConnectedIslandMinWidth) * widthScale,
-                CompactUtilityConnectedIslandMaxWidth * widthScale,
+                (if (omitCameraGap) 0.dp else CompactUtilityConnectedIslandMinWidth),
+                CompactUtilityConnectedIslandMaxWidth,
             )
     val utilityText =
         when (val popupContent = viewModel.popupContent) {
@@ -496,8 +487,7 @@ private fun UtilityStatusIslandChip(
                 }
                 .defaultMinSize(
                     minHeight =
-                        (32.dp + if (viewModel.isCallChip()) CosIsland.CallExtraHeight else 0.dp) *
-                            heightScale
+                        (32.dp + if (viewModel.isCallChip()) CosIsland.CallExtraHeight else 0.dp)
                 )
                 .then(
                     if (isFlashlight) {
@@ -526,9 +516,9 @@ private fun UtilityStatusIslandChip(
                 (if (isFlashlight) {
                     Modifier.weight(1f)
                 } else {
-                    Modifier.width(if (isSystemEvent) rightSegmentWidth else 30.dp * widthScale)
+                    Modifier.width(if (isSystemEvent) rightSegmentWidth else 30.dp)
                 })
-                    .padding(start = (if (isSystemEvent) 12.dp else 10.dp) * widthScale),
+                    .padding(start = if (isSystemEvent) 12.dp else 10.dp),
             contentAlignment = Alignment.CenterStart,
         ) {
             val chipIcon = viewModel.icons.first()
@@ -537,10 +527,10 @@ private fun UtilityStatusIslandChip(
                 if (event.kind == SystemEventKind.Charging) {
                     ChargingChipGlyph(
                         pulse = event.pulse,
-                        modifier = Modifier.size(18.dp * widthScale),
+                        modifier = Modifier.size(18.dp),
                     )
                 } else {
-                    Icon(icon = chipIcon.icon, modifier = Modifier.size(18.dp * widthScale),
+                    Icon(icon = chipIcon.icon, modifier = Modifier.size(18.dp),
                         tint = if (chipIcon.tint) islandChipAccentFor(event) ?: chipContentColor
                             else Color.Unspecified)
                 }
@@ -549,8 +539,8 @@ private fun UtilityStatusIslandChip(
                     icon = chipIcon.icon,
                     accent = islandChipAccentFor(viewModel.popupContent) ?: chipContentColor,
                     content = viewModel.popupContent,
-                    badgeSize = 20.dp * widthScale,
-                    iconSize = 13.dp * widthScale,
+                    badgeSize = 20.dp,
+                    iconSize = 13.dp,
                 )
             }
         }
@@ -559,16 +549,16 @@ private fun UtilityStatusIslandChip(
             modifier =
                 (if (isFlashlight) Modifier.weight(1f) else Modifier.width(rightSegmentWidth))
                     .padding(
-                        start = 6.dp * widthScale,
-                        top = 7.dp * heightScale,
-                        bottom = 7.dp * heightScale,
+                        start = 6.dp,
+                        top = 7.dp,
+                        bottom = 7.dp,
                         end = textEndPadding,
                     ),
             contentAlignment = Alignment.CenterEnd,
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp * widthScale, Alignment.End),
+                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -588,7 +578,7 @@ private fun UtilityStatusIslandChip(
                 }
             }
         }
-        if (!hasBalancedSegments) Spacer(modifier = Modifier.width(10.dp * widthScale))
+        if (!hasBalancedSegments) Spacer(modifier = Modifier.width(10.dp))
     }
 }
 
@@ -1029,18 +1019,6 @@ internal fun CompanionChip(
             }
         }
     }
-}
-
-@Composable
-internal fun rememberDynamicIslandSizeScale(): Pair<Float, Float> {
-    val context = LocalContext.current
-    val widthScale by
-        remember { observeDynamicIslandScale(context, DynamicIslandFeatureSettings.WIDTH_SCALE) }
-            .collectAsState(initial = 1f)
-    val heightScale by
-        remember { observeDynamicIslandScale(context, DynamicIslandFeatureSettings.HEIGHT_SCALE) }
-            .collectAsState(initial = 1f)
-    return widthScale to heightScale
 }
 
 private data class DynamicIslandCollapseState(

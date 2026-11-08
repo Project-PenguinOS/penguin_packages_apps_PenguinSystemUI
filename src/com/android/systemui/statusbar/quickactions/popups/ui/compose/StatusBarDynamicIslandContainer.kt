@@ -105,7 +105,6 @@ fun StatusBarDynamicIslandContainer(
             animationSpec = tween(300, easing = FastOutSlowInEasing),
             label = "islandAppHandleShift",
         )
-    val (_, heightScale) = rememberDynamicIslandSizeScale()
     val cos = rememberCosFeature(CosFeature.Island)
     var selectedChipId by remember { mutableStateOf<PopupChipId?>(null) }
     var popupAnchorChip by remember { mutableStateOf<PopupChipModel.Shown?>(null) }
@@ -202,7 +201,7 @@ fun StatusBarDynamicIslandContainer(
             null
         }
     var naturalCenterX by remember { mutableFloatStateOf(Float.NaN) }
-    val companionDiameter = DynamicIslandCompanionDiameter * heightScale
+    val companionDiameter = DynamicIslandCompanionDiameter
     val companionBalance = companionDiameter + DynamicIslandCompanionGap
     val effectivePageCount = if (showCompanion) 1 else chips.size
 
