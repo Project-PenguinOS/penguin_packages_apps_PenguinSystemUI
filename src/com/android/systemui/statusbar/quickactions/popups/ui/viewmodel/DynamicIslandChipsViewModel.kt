@@ -45,6 +45,7 @@ import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFe
 import com.android.systemui.statusbar.quickactions.popups.ui.model.PopupChipId
 import com.android.systemui.statusbar.quickactions.popups.ui.model.PopupChipModel
 import com.android.systemui.statusbar.quickactions.popups.ui.model.PopupContentModel
+import com.android.systemui.statusbar.quickactions.popups.ui.model.SystemEventKind
 import com.android.systemui.statusbar.quickactions.screenrecord.ui.viewmodel.ScreenRecordPopupChipViewModel
 import com.android.systemui.statusbar.quickactions.stopwatch.ui.viewmodel.StopwatchPopupChipViewModel
 import com.android.systemui.shared.system.ActivityManagerWrapper
@@ -350,16 +351,20 @@ constructor(
             launch {
                 val consumedRequests = mutableMapOf<PopupChipId, Long>()
                 var heldPopupId: PopupChipId? = null
+                // Calls that already opened their card once they showed in the island.
+                val expandedCalls = mutableSetOf<PopupChipId>()
                 snapshotFlow {
                     Triple(
                         systemEventChips.chips,
                         isDynamicIslandEnabled,
                         (isReadyForAutoPopup || (isOnLockscreen && isLockscreenEnabled)) &&
                             !isShadeVisible,
-                    )
-                }.collect { (chips, enabled, canAutoPopup) ->
+                    ) to visiblePopupChips.map { it.chipId }.toSet()
+                }.collect { (state, visibleIds) ->
+                    val (chips, enabled, canAutoPopup) = state
                     val ids = chips.map { it.chipId }.toSet()
                     consumedRequests.keys.retainAll(ids)
+                    expandedCalls.retainAll(ids)
                     if (!enabled || !canAutoPopup) {
                         showPopup(null)
                         return@collect
@@ -378,14 +383,30 @@ constructor(
                             consumedRequests[chip.chipId] != chip.autoPopupRequest
                     }
                     requests.forEach { consumedRequests[it.chipId] = it.autoPopupRequest!! }
-                    requests.firstOrNull()?.let { chip ->
+                    val request = requests.firstOrNull()
+                    request?.let { chip ->
                         showPopup(chip.chipId)
                         chip.onAutoPopupShown()
+                        if (chip.isCall() && chip.chipId in visibleIds) expandedCalls += chip.chipId
                         if (chip.autoPopupDurationMs == 0L) heldPopupId = chip.chipId
                         if (chip.autoPopupDurationMs > 0L) autoPopupJob = launch {
                             delay(chip.autoPopupDurationMs)
                             if (currentShownPopupChipId == chip.chipId) {
                                 showPopup(null)
+                            }
+                        }
+                    }
+                    // Any other call, such as one placed from the dialer, opens its card for a
+                    // moment the first time it shows in the island, even beside other activities.
+                    if (request == null && heldPopupId == null) {
+                        chips.firstOrNull {
+                            it.isCall() && it.chipId in visibleIds && it.chipId !in expandedCalls
+                        }?.let { call ->
+                            expandedCalls += call.chipId
+                            showPopup(call.chipId)
+                            autoPopupJob = launch {
+                                delay(CALL_AUTO_EXPAND_MS)
+                                if (currentShownPopupChipId == call.chipId) showPopup(null)
                             }
                         }
                     }
@@ -450,6 +471,12 @@ constructor(
         fun create(): DynamicIslandChipsViewModel
     }
 }
+
+/** How long a call that is not ringing keeps its card open when it first shows in the island. */
+private const val CALL_AUTO_EXPAND_MS = 5_000L
+
+private fun PopupChipModel.Shown.isCall(): Boolean =
+    (popupContent as? PopupContentModel.SystemEvent)?.kind == SystemEventKind.Call
 
 /** [com.android.systemui.islandevents.model.IslandEvent.Call] IDs: this prefix and the key. */
 private const val CALL_EVENT_PREFIX = "call_"
