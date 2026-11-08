@@ -23,7 +23,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -55,6 +61,7 @@ import com.android.systemui.penguin.LockscreenClockFace
 import com.android.systemui.shared.clocks.ClockRegistry
 import com.android.systemui.shared.clocks.DEFAULT_CLOCK_ID
 import com.android.systemui.shared.clocks.FluidDigits
+import com.android.systemui.shared.system.smartspace.SmartspaceState
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -90,6 +97,15 @@ constructor(
     private var screenOffset = Offset.Zero
     private var lastDigits: Rect? = null
     private var lastHeight = 0
+    // The launcher's flight shows a few frames after the handoff, and tells us once it has drawn
+    // by sending its clock state again. Until then this face keeps drawing the clock where it
+    // left it, so the clock never blinks out. A short timeout covers a launcher that never says.
+    private var stateAtHandoff: SmartspaceState? = null
+    private var lastPose: FluidClockPose? = null
+    private var lastTime = ""
+    private var lastAlpha = 0f
+    private var lastTint = WHITE
+    private var holdAlpha by mutableFloatStateOf(1f)
 
     init {
         val resolver = context.contentResolver
@@ -152,6 +168,7 @@ constructor(
             onDispose {
                 handedOff = false
                 lastDigits = null
+                lastPose = null
             }
         }
         val now by
@@ -162,6 +179,16 @@ constructor(
                 }
             }
         val tint = remember { wallpaperTint(context) }
+        val launcherNow by launcherState.launcherSmartspaceState.collectAsState()
+        LaunchedEffect(handedOff) {
+            holdAlpha = 1f
+            if (handedOff) {
+                kotlinx.coroutines.delay(HANDOFF_TIMEOUT_MS)
+                animate(1f, 0f, animationSpec = tween(HANDOFF_FADE_MS, easing = LinearEasing)) { v, _ ->
+                    holdAlpha = v
+                }
+            }
+        }
         val time = remember(now) {
             DateFormat.format(if (DateFormat.is24HourFormat(context)) "HH:mm" else "hh:mm", now)
                 .toString()
@@ -180,7 +207,27 @@ constructor(
                     regions.values.lastOrNull { !it.bounds.isEmpty } ?: return@Canvas
             val large = selected.large
             val region = selected.bounds
-            if (handedOff) return@Canvas
+            if (handedOff) {
+                val pose = lastPose ?: return@Canvas
+                val hold = holdAlpha
+                if (hold <= 0f || launcherNow !== stateAtHandoff) return@Canvas
+                val bottom = pose.top + pose.textSize * FluidDigits.heightEm(pose.height)
+                digitPaint.shader =
+                    LinearGradient(0f, pose.top, 0f, bottom, WHITE, lastTint, Shader.TileMode.CLAMP)
+                digitPaint.alpha = (255 * lastAlpha * hold).roundToInt()
+                drawIntoCanvas {
+                    FluidDigits.draw(
+                        it.nativeCanvas,
+                        lastTime,
+                        pose.left,
+                        pose.top,
+                        pose.textSize,
+                        pose.height,
+                        digitPaint,
+                    )
+                }
+                return@Canvas
+            }
             val location = IntArray(2).also { view.getLocationOnScreen(it) }
             screenOffset = Offset(location[0].toFloat(), location[1].toFloat())
             val a = alpha().coerceIn(0f, 1f)
@@ -204,6 +251,10 @@ constructor(
                     (bottom + screenOffset.y).roundToInt(),
                 )
             lastHeight = h
+            lastPose = pose
+            lastTime = time
+            lastAlpha = a
+            lastTint = tint
 
             val dateSize = with(density) { (if (large) 17.sp else 14.sp).toPx() }
             datePaint.textSize = dateSize
@@ -229,6 +280,7 @@ constructor(
     }
 
     override fun onHandedOff() {
+        stateAtHandoff = launcherState.launcherSmartspaceState.value
         handedOff = true
     }
 
@@ -307,6 +359,8 @@ constructor(
         const val SMALL_HEIGHT = 50f
         const val HOME_HEIGHT = 330f
         const val FOLLOW_HAND = 0.5f
+        const val HANDOFF_TIMEOUT_MS = 150L
+        const val HANDOFF_FADE_MS = 50
         const val WHITE = 0xFFFFFFFF.toInt()
         const val LAVENDER = 0xFFD9CCFF.toInt()
     }
