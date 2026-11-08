@@ -267,7 +267,7 @@ fun StatusBarDynamicIslandContainer(
                         leaving[0] = null
                     },
                     modifier =
-                        Modifier.pointerInput(chips.size) {
+                        Modifier.pointerInput(chips.size, chip.chipId) {
                             detectHorizontalDragGestures(
                                 onDragStart = { dragged = 0f },
                                 onDragEnd = {
