@@ -102,6 +102,25 @@ public class WallpaperDepthUtils implements DepthSubject {
             WALLPAPER_DEPTH_BOTTOM_FADE_KEY, WALLPAPER_DEPTH_FADE_CURVE_KEY,
             WALLPAPER_DEPTH_BOTTOM_INSET_KEY, WALLPAPER_DEPTH_FLOATING_KEY);
         mLockScreenSubject = new FrameLayout(mContext) {
+            private final int[] mLoc = new int[2];
+
+            @Override
+            public void draw(android.graphics.Canvas canvas) {
+                final Rect card = mMediaCardBounds;
+                if (card == null) {
+                    super.draw(canvas);
+                    return;
+                }
+                // Leave the lockscreen media card uncovered; the subject still
+                // overlaps the clock above it
+                getLocationInWindow(mLoc);
+                canvas.save();
+                canvas.clipOutRect(card.left - mLoc[0], card.top - mLoc[1],
+                        card.right - mLoc[0], card.bottom - mLoc[1]);
+                super.draw(canvas);
+                canvas.restore();
+            }
+
             @Override
             protected void onDetachedFromWindow() {
                 super.onDetachedFromWindow();
@@ -128,6 +147,16 @@ public class WallpaperDepthUtils implements DepthSubject {
     }
 
     private static boolean sExpandedMediaArtVisible;
+
+    private volatile Rect mMediaCardBounds;
+
+    @Override
+    public void setMediaCardBounds(Rect bounds) {
+        final Rect old = mMediaCardBounds;
+        if (old == null ? bounds == null : old.equals(bounds)) return;
+        mMediaCardBounds = bounds == null ? null : new Rect(bounds);
+        if (mLockScreenSubject != null) mLockScreenSubject.postInvalidateOnAnimation();
+    }
 
     @Override
     public void setExpandedMediaArtVisible(boolean visible) {
