@@ -52,6 +52,9 @@ import kotlinx.coroutines.flow.map
 
 private val PillMargin = 16.dp
 
+// The gap ConstrainedNotificationStack keeps under the stack, above the lock icon.
+private val StackBottomGap = 16.dp
+
 class ExpandableLockscreenPlayer
 @Inject
 constructor(iconsInteractor: NotificationIconsInteractor) : LockscreenPlayer {
@@ -187,15 +190,19 @@ constructor(iconsInteractor: NotificationIconsInteractor) : LockscreenPlayer {
             )
         }
         // The notifications rest at the bottom, so the collapsed player moves down to sit on them
-        // instead of leaving the gap between the two.
+        // instead of leaving the gap between the two. Without notifications it rests where their
+        // bottom would be, so it does not jump up and down as they come and go.
         var stackTop by remember { mutableFloatStateOf(Float.NaN) }
         var slotTop by remember { mutableFloatStateOf(Float.NaN) }
+        val stackBottomGap = with(LocalDensity.current) { StackBottomGap.toPx() }
         Column(
             Modifier.fillMaxWidth().offset {
-                val drop =
-                    if (stackTop.isNaN() || slotTop.isNaN()) 0f
+                val alone = (notificationsHeight - stackBottomGap).coerceAtLeast(0f)
+                val onStack =
+                    if (stackTop.isNaN() || slotTop.isNaN()) alone
                     else (stackTop - slotTop).coerceAtLeast(0f)
-                IntOffset(0, (drop * notifications * (1f - expansion)).roundToInt())
+                val drop = alone + (onStack - alone) * notifications
+                IntOffset(0, (drop * (1f - expansion)).roundToInt())
             }
         ) {
             media()
