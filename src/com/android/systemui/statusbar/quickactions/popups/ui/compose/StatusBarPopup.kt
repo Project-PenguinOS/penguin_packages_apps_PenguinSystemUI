@@ -41,6 +41,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -216,6 +217,8 @@ fun StatusBarPopup(
         val cosCornerPx = with(density) { CosCardCorner.toPx() }
         val blur = remember { Animatable(0f) }
         var stackTopCardHeight by remember { mutableFloatStateOf(0f) }
+        // The window blur ignores the veil and the layer alpha, so it fades with them.
+        val glassAlpha = remember { { alpha.value * (1f - veil.value) } }
         val colorMode = rememberPopupColorMode()
         val skipMotionOnDismiss = colorMode == POPUP_COLOR_MODE_BLUR
 
@@ -405,7 +408,15 @@ fun StatusBarPopup(
                                 val f = reveal.value
                                 this.clip = f < 1f
                                 if (this.clip) {
-                                    this.shape = CosRevealShape(f, cosCornerPx, anchorTop = stacked)
+                                    this.shape =
+                                        CosRevealShape(
+                                            f,
+                                            cosCornerPx,
+                                            anchorTop = stacked,
+                                            foldHeight =
+                                                if (stacked && !isVisible) stackTopCardHeight
+                                                else 0f,
+                                        )
                                 }
                             } else {
                                 this.transformOrigin = transformOrigin
@@ -494,11 +505,13 @@ fun StatusBarPopup(
                             .graphicsLayer { translationX = pageFollow.value }
                 ) {
                     if (stackedChips != null) {
-                        IslandCardStack(
-                            chips = stackedChips,
-                            isVisible = isVisible,
-                            onTopCardHeight = { stackTopCardHeight = it },
-                        )
+                        CompositionLocalProvider(LocalIslandGlassAlpha provides glassAlpha) {
+                            IslandCardStack(
+                                chips = stackedChips,
+                                isVisible = isVisible,
+                                onTopCardHeight = { stackTopCardHeight = it },
+                            )
+                        }
                         return@Box
                     }
                     AnimatedContent(
@@ -517,7 +530,9 @@ fun StatusBarPopup(
                         },
                         label = "island_popup_pager",
                     ) { chip ->
-                        IslandPopupContent(chip)
+                        CompositionLocalProvider(LocalIslandGlassAlpha provides glassAlpha) {
+                            IslandPopupContent(chip)
+                        }
                     }
                 }
             }
@@ -581,6 +596,8 @@ private class CosRevealShape(
     private val fraction: Float,
     private val cornerPx: Float,
     private val anchorTop: Boolean = false,
+    /** A closing stack folds into its top card, so it ends in the island like a single card. */
+    private val foldHeight: Float = 0f,
 ) : Shape {
     override fun createOutline(
         size: Size,
@@ -589,7 +606,10 @@ private class CosRevealShape(
     ): Outline {
         val start = size.width * 0.12f
         val w = start + (size.width - start) * fraction
-        val h = start + (size.height - start) * fraction
+        val full =
+            if (foldHeight > 0f) foldHeight + (size.height - foldHeight) * fraction
+            else size.height
+        val h = start + (full - start) * fraction
         val left = (size.width - w) / 2f
         val top = if (anchorTop) 0f else (size.height - h) / 2f
         val r = minOf(cornerPx, w / 2f, h / 2f)

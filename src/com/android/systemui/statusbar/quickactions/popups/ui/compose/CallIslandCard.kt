@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.android.systemui.common.ui.compose.Icon as StatusBarIcon
+import com.android.systemui.qs.shared.style.liquidGlassEnabled
 import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings.POPUP_COLOR_MODE_DEFAULT
 import com.android.systemui.statusbar.quickactions.popups.shared.DynamicIslandFeatureSettings.POPUP_COLOR_MODE_SOLID_BLACK
 import com.android.systemui.statusbar.quickactions.popups.ui.model.CallPopupModel
@@ -70,9 +71,10 @@ fun CallIslandCard(
     modifier: Modifier = Modifier,
 ) {
     // Black like the island itself, unless the user picked blur or liquid glass for popups.
+    val glass = liquidGlassEnabled()
     val colorMode =
         rememberPopupColorMode().let {
-            if (it == POPUP_COLOR_MODE_DEFAULT) POPUP_COLOR_MODE_SOLID_BLACK else it
+            if (it == POPUP_COLOR_MODE_DEFAULT && !glass) POPUP_COLOR_MODE_SOLID_BLACK else it
         }
     PopupSurface(
         shape = CallCardShape,
