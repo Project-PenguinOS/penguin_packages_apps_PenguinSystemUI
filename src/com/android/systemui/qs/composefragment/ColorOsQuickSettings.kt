@@ -512,8 +512,10 @@ fun ColorOsTileGrid(tiles: List<TileViewModel>, modifier: Modifier = Modifier) {
     if (pages.isEmpty()) return
     val pager = rememberPagerState { pages.size }
     Column(modifier.cosModuleReveal(4).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        // A single page has nothing to scroll; leave sideways swipes to the panel switch.
         HorizontalPager(
             state = pager,
+            userScrollEnabled = pages.size > 1,
             modifier =
                 Modifier.cosSwitchRow()
                     .fillMaxWidth()

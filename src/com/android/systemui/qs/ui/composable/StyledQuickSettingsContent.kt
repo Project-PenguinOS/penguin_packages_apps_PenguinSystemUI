@@ -41,6 +41,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.LaunchedEffect
@@ -146,28 +148,38 @@ import com.android.systemui.res.R
 import com.android.systemui.scene.shared.model.Overlays
 import kotlinx.coroutines.flow.filterNotNull
 
+/**
+ * How the content hosting Quick Settings is moving. One instance lives per content and its values
+ * are state, so a change only recomposes what reads it, not everything under the provider.
+ */
+@Stable
 internal class QsHostTransition(
-    val idle: Boolean,
-    val leaving: Boolean,
+    idle: () -> Boolean,
+    leaving: () -> Boolean,
     /** How far the host has gone while leaving, from 0 to 1. */
     val leftProgress: () -> Float = { 0f },
-)
+) {
+    val idle by derivedStateOf(idle)
+    val leaving by derivedStateOf(leaving)
+}
 
 internal val LocalQsHostTransition = compositionLocalOf<QsHostTransition?> { null }
 
+@Composable
 internal fun ContentScope.qsHostTransition(): QsHostTransition {
-    val transition = layoutState.transitionState as? TransitionState.Transition
-    val leaving =
-        transition != null &&
-            transition.key != CosShadeSwitch &&
-            transition.fromContent == contentKey &&
-            transition.toContent != contentKey
-    return QsHostTransition(
-        idle = transition == null,
-        leaving = leaving,
-        leftProgress =
-            if (leaving) ({ transition!!.progress.coerceIn(0f, 1f) }) else ({ 0f }),
-    )
+    val state = layoutState
+    val key = contentKey
+    return remember(state, key) {
+        fun leavingTransition(): TransitionState.Transition? =
+            (state.transitionState as? TransitionState.Transition)?.takeIf {
+                it.key != CosShadeSwitch && it.fromContent == key && it.toContent != key
+            }
+        QsHostTransition(
+            idle = { state.transitionState !is TransitionState.Transition },
+            leaving = { leavingTransition() != null },
+            leftProgress = { leavingTransition()?.progress?.coerceIn(0f, 1f) ?: 0f },
+        )
+    }
 }
 
 @Composable
@@ -397,11 +409,13 @@ private fun ContentScope.ColorOsQuickSettingsContent(
     val own = qsHostTransition()
     val host = LocalQsHostTransition.current ?: own
     val transition =
-        QsHostTransition(
-            idle = host.idle && own.idle,
-            leaving = host.leaving || own.leaving,
-            leftProgress = if (host.leaving) host.leftProgress else own.leftProgress,
-        )
+        remember(host, own) {
+            QsHostTransition(
+                idle = { host.idle && own.idle },
+                leaving = { host.leaving || own.leaving },
+                leftProgress = { if (host.leaving) host.leftProgress() else own.leftProgress() },
+            )
+        }
     val cosHide = rememberCosFeature(CosFeature.Shade)
     val glassFade = remember { Animatable(1f) }
     LaunchedEffect(cosHide && transition.leaving) {
@@ -413,7 +427,8 @@ private fun ContentScope.ColorOsQuickSettingsContent(
     val outerGlassAlpha = LocalGlassBlurAlpha.current
     CompositionLocalProvider(
         LocalQsHostTransition provides transition,
-        LocalGlassBlurAlpha provides { outerGlassAlpha() * glassFade.value },
+        LocalGlassBlurAlpha provides
+            remember(outerGlassAlpha) { { outerGlassAlpha() * glassFade.value } },
     ) {
         QsColumns(
             gap = ColorOsGap,

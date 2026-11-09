@@ -80,7 +80,8 @@ fun ContentScope.ControlCentreTop(
         )
         return
     }
-    val leaving = LocalQsHostTransition.current?.leaving == true || qsHostTransition().leaving
+    val own = qsHostTransition()
+    val leaving = LocalQsHostTransition.current?.leaving == true || own.leaving
     Column(
         Modifier.fillMaxWidth()
             .cosHeaderHide(leaving)

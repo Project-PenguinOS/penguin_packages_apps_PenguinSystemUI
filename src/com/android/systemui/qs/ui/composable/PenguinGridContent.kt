@@ -342,7 +342,8 @@ private fun ContentScope.PenguinGridPages(
     val columns = if (wide) PenguinGrid.COLUMNS * 2 else PenguinGrid.COLUMNS
 
     val panelVisible = isAlwaysComposedContentVisible()
-    val host = LocalQsHostTransition.current ?: qsHostTransition()
+    val own = qsHostTransition()
+    val host = LocalQsHostTransition.current ?: own
     LaunchedEffect(panelVisible, host.leaving) {
         if (!panelVisible || host.leaving) closeExpansions()
     }
