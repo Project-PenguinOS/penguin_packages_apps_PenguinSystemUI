@@ -6,6 +6,9 @@
 package com.android.systemui.keyguard.ui.composable.media
 
 import android.graphics.Bitmap
+import kotlin.math.roundToInt
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.animation.core.animateFloatAsState
 import android.graphics.RuntimeShader
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -103,6 +106,8 @@ internal fun CosImmersiveArt(
     val tablet = LocalConfiguration.current.smallestScreenWidthDp >= TABLET_MIN_WIDTH_DP
     var origin by remember { mutableStateOf(Offset.Zero) }
     val rims = remember { HashMap<Any, RuntimeShader?>() }
+    // The cover's mirrored and blurred copies follow the video, not the static art under it.
+    val frames = remember(video) { video?.let { VideoFrames() } }
     DisposableEffect(Unit) {
         GlassBackdrop.drawing.value = true
         onDispose { GlassBackdrop.drawing.value = false }
@@ -126,15 +131,15 @@ internal fun CosImmersiveArt(
                     // Tablet landscape: the square fits the height over a full-bleed copy of
                     // itself, its sides fading into that copy instead of leaving bars.
                     tablet && width > height -> WideArt(
-                        artwork, cover, motion, renderHeight, maskColor,
+                        artwork, cover, motion, frames, renderHeight, maskColor,
                         BLUR_RADIUS * renderScale,
                     )
                     // Wide (tablet landscape) screens fit the square to the height.
-                    width > height -> ArtStack(artwork, cover, motion, renderHeight, 0.dp)
+                    width > height -> ArtStack(artwork, cover, motion, frames, renderHeight, 0.dp)
                     // Tablet portrait: lift the square so its lower edge sits where the phone's
                     // does, instead of near the bottom of the much less tall screen.
-                    tablet -> ArtStack(artwork, cover, motion, renderWidth, coverTop * renderScale)
-                    else -> ArtStack(artwork, cover, motion, renderWidth, renderHeight * 0.2f)
+                    tablet -> ArtStack(artwork, cover, motion, frames, renderWidth, coverTop * renderScale)
+                    else -> ArtStack(artwork, cover, motion, frames, renderWidth, renderHeight * 0.2f)
                 }
                 if (tinted) {
                     Box(Modifier.fillMaxSize().background(maskColor.copy(alpha = MASK_ALPHA)))
@@ -228,14 +233,22 @@ private fun DrawScope.drawGlass(region: GlassBackdrop.Region, at: Offset, rim: R
 }
 
 @Composable
-private fun ArtStack(artwork: CommonIcon, cover: ImageBitmap?, video: File?, side: Dp, top: Dp) {
+private fun ArtStack(
+    artwork: CommonIcon,
+    cover: ImageBitmap?,
+    video: File?,
+    frames: VideoFrames?,
+    side: Dp,
+    top: Dp,
+) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-        Art(artwork, cover, Modifier.offset(y = top - side).size(side).graphicsLayer { scaleY = -1f })
+        val mirrored = Modifier.size(side).graphicsLayer { scaleY = -1f }
+        Art(artwork, cover, Modifier.offset(y = top - side).then(mirrored), frames)
         Box(Modifier.offset(y = top).size(side)) {
-            Art(artwork, cover, Modifier.fillMaxSize())
-            video?.let { MotionArtVideo(it, Modifier.fillMaxSize(), crop = true) }
+            Art(artwork, cover, Modifier.fillMaxSize(), frames)
+            video?.let { MotionArtVideo(it, Modifier.fillMaxSize(), crop = true, frames = frames) }
         }
-        Art(artwork, cover, Modifier.offset(y = top + side).size(side).graphicsLayer { scaleY = -1f })
+        Art(artwork, cover, Modifier.offset(y = top + side).then(mirrored), frames)
     }
 }
 
@@ -244,6 +257,7 @@ private fun WideArt(
     artwork: CommonIcon,
     cover: ImageBitmap?,
     video: File?,
+    frames: VideoFrames?,
     side: Dp,
     tint: Color,
     blurRadius: Float,
@@ -253,6 +267,7 @@ private fun WideArt(
             artwork,
             cover,
             Modifier.fillMaxSize().lowResolutionBlur(blurRadius, TabletBlurScale),
+            frames,
         )
         Box(Modifier.fillMaxSize().background(tint.copy(alpha = MASK_ALPHA)))
         Box(
@@ -271,8 +286,8 @@ private fun WideArt(
                     )
                 }
         ) {
-            Art(artwork, cover, Modifier.fillMaxSize())
-            video?.let { MotionArtVideo(it, Modifier.fillMaxSize(), crop = true) }
+            Art(artwork, cover, Modifier.fillMaxSize(), frames)
+            video?.let { MotionArtVideo(it, Modifier.fillMaxSize(), crop = true, frames = frames) }
         }
     }
 }
@@ -304,13 +319,36 @@ private fun Modifier.lowResolutionBlur(radius: Float, scale: Float): Modifier {
         }
 }
 
-/** The store's full-size [cover] when there is one; the session's far smaller bitmap otherwise. */
+/**
+ * The store's full-size [cover] when there is one; the session's far smaller bitmap otherwise.
+ * Once the motion art plays, its latest [frames] cover the static art.
+ */
 @Composable
-private fun Art(artwork: CommonIcon, cover: ImageBitmap?, modifier: Modifier) {
-    if (cover != null) {
-        Image(cover, null, modifier, contentScale = ContentScale.Crop)
-    } else {
-        Artwork(artwork, modifier)
+private fun Art(
+    artwork: CommonIcon,
+    cover: ImageBitmap?,
+    modifier: Modifier,
+    frames: VideoFrames? = null,
+) {
+    Box(modifier) {
+        if (cover != null) {
+            Image(cover, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        } else {
+            Artwork(artwork, Modifier.fillMaxSize())
+        }
+        if (frames != null) {
+            val shown by animateFloatAsState(if (frames.ready) 1f else 0f, label = "videoFrames")
+            Box(
+                Modifier.fillMaxSize().drawBehind {
+                    val frame = frames.frame ?: return@drawBehind
+                    drawImage(
+                        frame,
+                        dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()),
+                        alpha = shown,
+                    )
+                }
+            )
+        }
     }
 }
 

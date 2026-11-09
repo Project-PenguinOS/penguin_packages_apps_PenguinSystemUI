@@ -17,6 +17,7 @@
 package com.android.systemui.keyguard.ui.composable.media
 
 import android.graphics.Matrix
+import android.os.SystemClock
 import android.graphics.SurfaceTexture
 import android.media.MediaPlayer
 import android.util.Log
@@ -30,16 +31,29 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.viewinterop.AndroidView
 import java.io.File
 import java.io.IOException
+
+/** Small, frequently refreshed frames of a playing video, for its blurred and mirrored copies. */
+internal class VideoFrames {
+    /** Read it while drawing, so a new frame only redraws. */
+    var frame by mutableStateOf<ImageBitmap?>(null)
+    var ready by mutableStateOf(false)
+}
+
+private const val FRAME_SIZE = 360
+private const val FRAME_INTERVAL_MS = 66L
 
 @Composable
 internal fun MotionArtVideo(
     file: File,
     modifier: Modifier = Modifier,
     crop: Boolean = false,
+    frames: VideoFrames? = null,
     onError: () -> Unit = {},
     onRendering: () -> Unit = {},
 ) {
@@ -51,7 +65,7 @@ internal fun MotionArtVideo(
                 TextureView(context).apply {
                     isOpaque = false
                     surfaceTextureListener =
-                        LoopingPlayer(this, file, crop, onError) {
+                        LoopingPlayer(this, file, crop, frames, onError) {
                             rendering = true
                             onRendering()
                         }
@@ -67,11 +81,13 @@ private class LoopingPlayer(
     private val view: TextureView,
     private val file: File,
     private val crop: Boolean,
+    private val frames: VideoFrames?,
     private val onError: () -> Unit,
     private val onRendering: () -> Unit,
 ) : TextureView.SurfaceTextureListener {
     private var player: MediaPlayer? = null
     private var surface: Surface? = null
+    private var lastFrame = 0L
 
     override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
         release()
@@ -130,7 +146,15 @@ private class LoopingPlayer(
         )
     }
 
-    override fun onSurfaceTextureUpdated(texture: SurfaceTexture) {}
+    override fun onSurfaceTextureUpdated(texture: SurfaceTexture) {
+        val frames = frames ?: return
+        val now = SystemClock.uptimeMillis()
+        if (now - lastFrame < FRAME_INTERVAL_MS) return
+        lastFrame = now
+        val bitmap = view.getBitmap(FRAME_SIZE, FRAME_SIZE) ?: return
+        frames.frame = bitmap.asImageBitmap()
+        frames.ready = true
+    }
 
     fun release() {
         player?.release()
