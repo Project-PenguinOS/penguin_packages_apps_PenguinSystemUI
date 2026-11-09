@@ -249,11 +249,9 @@ internal fun rememberPenguinGridModel(viewModel: QuickSettingsContainerViewModel
     val roundTiles = !oneUi && liquidGlassEnabled()
     return remember(raw, modules, tiles, largeTiles, flavor, roundTiles) {
         val saved = PenguinGrid.parse(raw)
-        val sizedAs = if (roundTiles) emptySet() else largeTiles
-        val layout = if (roundTiles) saved?.map { page -> page.filter { it.spec in modules } } else saved
         val resolved =
-            layout?.let { PenguinGrid.resolve(it, modules, tiles, sizedAs, flavor = flavor) }
-                ?: PenguinGrid.defaults(modules, tiles, sizedAs, flavor)
+            saved?.let { PenguinGrid.resolve(it, modules, tiles, largeTiles, flavor = flavor) }
+                ?: PenguinGrid.defaults(modules, tiles, largeTiles, flavor)
         PenguinGridModel(
             modules = modules,
             tiles = tiles,
