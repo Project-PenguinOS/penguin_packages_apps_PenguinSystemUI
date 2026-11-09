@@ -59,6 +59,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,6 +83,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import com.android.compose.animation.scene.ContentScope
+import kotlin.math.roundToInt
 import com.android.compose.animation.scene.OverlayKey
 import com.android.systemui.scene.shared.model.Overlays
 import com.android.compose.animation.scene.ElementKey
@@ -362,6 +364,27 @@ private fun ContentScope.PenguinGridPages(
     val pageHeight = penguinPageHeight(pages)
     val mediaShown = viewModel.showMedia && viewModel.hasMediaCards
     val pagerState = rememberPagerState(pageCount = { pages.size })
+    // Glide back to the first page as the panel closes, so a later page doesn't land on the
+    // quick tiles; it also reopens there.
+    val hostNow by rememberUpdatedState(host)
+    LaunchedEffect(pagerState) {
+        var from = 0f
+        snapshotFlow { if (hostNow.leaving) hostNow.leftProgress() else null }
+            .collect { progress ->
+                if (progress == null) {
+                    from = 0f
+                    return@collect
+                }
+                if (from == 0f) {
+                    from = pagerState.currentPage + pagerState.currentPageOffsetFraction
+                    if (from == 0f) return@collect
+                }
+                val target = from * (1f - progress)
+                val page = target.roundToInt()
+                pagerState.scrollToPage(page, target - page)
+            }
+    }
+    LaunchedEffect(panelVisible) { if (!panelVisible) pagerState.scrollToPage(0) }
 
     val expanded = ConnectivityFolderExpansion.expanded || PenguinMediaExpansion.expanded
     val progress = remember { Animatable(0f) }
@@ -849,3 +872,4 @@ internal fun secureStringSetting(key: String): String? {
     }
     return value
 }
+

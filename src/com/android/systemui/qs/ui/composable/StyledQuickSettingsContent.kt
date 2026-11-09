@@ -146,19 +146,27 @@ import com.android.systemui.res.R
 import com.android.systemui.scene.shared.model.Overlays
 import kotlinx.coroutines.flow.filterNotNull
 
-internal class QsHostTransition(val idle: Boolean, val leaving: Boolean)
+internal class QsHostTransition(
+    val idle: Boolean,
+    val leaving: Boolean,
+    /** How far the host has gone while leaving, from 0 to 1. */
+    val leftProgress: () -> Float = { 0f },
+)
 
 internal val LocalQsHostTransition = compositionLocalOf<QsHostTransition?> { null }
 
 internal fun ContentScope.qsHostTransition(): QsHostTransition {
     val transition = layoutState.transitionState as? TransitionState.Transition
+    val leaving =
+        transition != null &&
+            transition.key != CosShadeSwitch &&
+            transition.fromContent == contentKey &&
+            transition.toContent != contentKey
     return QsHostTransition(
         idle = transition == null,
-        leaving =
-            transition != null &&
-                transition.key != CosShadeSwitch &&
-                transition.fromContent == contentKey &&
-                transition.toContent != contentKey,
+        leaving = leaving,
+        leftProgress =
+            if (leaving) ({ transition!!.progress.coerceIn(0f, 1f) }) else ({ 0f }),
     )
 }
 
@@ -389,7 +397,11 @@ private fun ContentScope.ColorOsQuickSettingsContent(
     val own = qsHostTransition()
     val host = LocalQsHostTransition.current ?: own
     val transition =
-        QsHostTransition(idle = host.idle && own.idle, leaving = host.leaving || own.leaving)
+        QsHostTransition(
+            idle = host.idle && own.idle,
+            leaving = host.leaving || own.leaving,
+            leftProgress = if (host.leaving) host.leftProgress else own.leftProgress,
+        )
     val cosHide = rememberCosFeature(CosFeature.Shade)
     val glassFade = remember { Animatable(1f) }
     LaunchedEffect(cosHide && transition.leaving) {
