@@ -12,6 +12,7 @@ import com.android.compose.animation.scene.ContentKey
 import com.android.compose.animation.scene.Edge
 import com.android.compose.animation.scene.ElementKey
 import com.android.compose.animation.scene.ElementMatcher
+import com.android.compose.animation.scene.FixedDistance
 import com.android.compose.animation.scene.TransitionBuilder
 import com.android.compose.animation.scene.UserActionDistance
 import com.android.compose.animation.scene.reveal.ContainerRevealHaptics
@@ -33,19 +34,26 @@ import kotlin.time.Duration.Companion.milliseconds
 /** Quick Settings opens and closes like the notification shade. */
 fun TransitionBuilder.styledToQuickSettingsShadeTransition(
     durationScale: Double = 1.0,
+    cascade: Boolean = false,
 ) {
     spec = overlayShadeSpring(durationScale)
+    distance = FixedDistance(ShadeRevealDistance)
 
-    oxygenPanelReveal(QuickSettingsShade.Elements.Panel)
+    if (cascade) {
+        fractionRange(end = 0.3f) { fade(QuickSettingsShade.Elements.Panel) }
+    } else {
+        oxygenPanelReveal(QuickSettingsShade.Elements.Panel)
+    }
 
-    fractionRange(start = .16f, end = 0.8f) { fade(QuickSettingsShade.Elements.StatusBar) }
-    fractionRange(start = .33f, end = 0.8f) { fade(QuickSettingsShade.Elements.Header) }
-    fractionRange(end = .5f) { fade(OverlayShade.Elements.Scrim) }
+    fractionRange(start = .05f, end = 0.5f) { fade(QuickSettingsShade.Elements.StatusBar) }
+    fractionRange(start = .1f, end = 0.5f) { fade(QuickSettingsShade.Elements.Header) }
+    fractionRange(end = .35f) { fade(OverlayShade.Elements.Scrim) }
 }
 
 fun TransitionBuilder.styledToNotificationsShadeTransition(
     durationScale: Double = 1.0,
     enableSharedElements: Boolean,
+    cascade: Boolean = false,
 ) {
     spec = overlayShadeSpring(durationScale)
 
@@ -67,11 +75,17 @@ fun TransitionBuilder.styledToNotificationsShadeTransition(
         enabled = enableSharedElements,
     )
 
-    oxygenPanelReveal(NotificationsShade.Elements.Panel)
+    distance = FixedDistance(ShadeRevealDistance)
+    if (cascade) {
+        // The cards carry the motion themselves; the panel only fades in under them.
+        fractionRange(end = 0.3f) { fade(NotificationsShade.Elements.Panel) }
+    } else {
+        oxygenPanelReveal(NotificationsShade.Elements.Panel)
+        fractionRange(start = .05f, end = 0.5f) { fade(Notifications.Elements.StackPlaceholder) }
+    }
 
-    fractionRange(start = .16f, end = 0.8f) { fade(NotificationsShade.Elements.StatusBar) }
-    fractionRange(start = .33f, end = 0.8f) { fade(Notifications.Elements.StackPlaceholder) }
-    fractionRange(end = .5f) { fade(OverlayShade.Elements.Scrim) }
+    fractionRange(start = .05f, end = 0.5f) { fade(NotificationsShade.Elements.StatusBar) }
+    fractionRange(end = .35f) { fade(OverlayShade.Elements.Scrim) }
 }
 
 fun TransitionBuilder.styledShadeToQuickSettingsTransition(

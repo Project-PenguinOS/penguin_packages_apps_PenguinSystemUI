@@ -158,6 +158,8 @@ internal class QsHostTransition(
     leaving: () -> Boolean,
     /** How far the host has gone while leaving, from 0 to 1. */
     val leftProgress: () -> Float = { 0f },
+    /** How far the host is shown, from 0 (hidden) to 1, following the finger and the spring. */
+    val shownProgress: () -> Float = { 1f },
 ) {
     val idle by derivedStateOf(idle)
     val leaving by derivedStateOf(leaving)
@@ -178,6 +180,15 @@ internal fun ContentScope.qsHostTransition(): QsHostTransition {
             idle = { state.transitionState !is TransitionState.Transition },
             leaving = { leavingTransition() != null },
             leftProgress = { leavingTransition()?.progress?.coerceIn(0f, 1f) ?: 0f },
+            shownProgress = {
+                val transition = state.transitionState as? TransitionState.Transition
+                when {
+                    transition == null || transition.key == CosShadeSwitch -> 1f
+                    transition.toContent == key -> transition.progress.coerceIn(0f, 1f)
+                    transition.fromContent == key -> 1f - transition.progress.coerceIn(0f, 1f)
+                    else -> 1f
+                }
+            },
         )
     }
 }
@@ -414,22 +425,11 @@ private fun ContentScope.ColorOsQuickSettingsContent(
                 idle = { host.idle && own.idle },
                 leaving = { host.leaving || own.leaving },
                 leftProgress = { if (host.leaving) host.leftProgress() else own.leftProgress() },
+                shownProgress = { minOf(host.shownProgress(), own.shownProgress()) },
             )
         }
-    val cosHide = rememberCosFeature(CosFeature.Shade)
-    val glassFade = remember { Animatable(1f) }
-    LaunchedEffect(cosHide && transition.leaving) {
-        glassFade.animateTo(
-            if (cosHide && transition.leaving) 0f else 1f,
-            spring(dampingRatio = 1f, stiffness = 3948f),
-        )
-    }
-    val outerGlassAlpha = LocalGlassBlurAlpha.current
-    CompositionLocalProvider(
-        LocalQsHostTransition provides transition,
-        LocalGlassBlurAlpha provides
-            remember(outerGlassAlpha) { { outerGlassAlpha() * glassFade.value } },
-    ) {
+    // Each module's glass fades with it as the panel cascades out (CosModuleGlass).
+    CompositionLocalProvider(LocalQsHostTransition provides transition) {
         QsColumns(
             gap = ColorOsGap,
             modifier =

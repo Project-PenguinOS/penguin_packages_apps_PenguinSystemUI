@@ -171,22 +171,22 @@ fun ColorOsTopRows(
             (fit * ColorOsSliderAspect).coerceIn(ColorOsModuleHeight, ColorOsMaxModuleHeight)
         val sliderWidth = minOf(fit, moduleHeight / ColorOsSliderAspect)
         Column(verticalArrangement = spacedBy(ColorOsGap)) {
-            Row(Modifier.cosModuleReveal(1).cosSwitchRow().fillMaxWidth().height(ColorOsPillHeight), spacedBy(ColorOsGap)) {
+            Row(Modifier.cosModuleReveal(1).cosSwitchRow().fillMaxWidth().height(ColorOsPillHeight), spacedBy(ColorOsGap)) { CosModuleGlass(1) {
                 Box(Modifier.weight(1f).fillMaxHeight()) { wifi?.let { ColorOsConnectionPill(it) } }
                 Box(Modifier.weight(1f).fillMaxHeight()) {
                     bluetooth?.let { ColorOsConnectionPill(it) }
                 }
-            }
-            Row(Modifier.cosModuleReveal(2).cosSwitchRow().fillMaxWidth().height(moduleHeight), spacedBy(ColorOsGap)) {
+            }}
+            Row(Modifier.cosModuleReveal(2).cosSwitchRow().fillMaxWidth().height(moduleHeight), spacedBy(ColorOsGap)) { CosModuleGlass(2) {
                 Box(Modifier.weight(1f).fillMaxHeight()) {
                     media?.invoke(moduleHeight) ?: ColorOsIdleMedia()
                 }
                 Box(Modifier.weight(1f).fillMaxHeight()) { sliders(sliderWidth, moduleHeight) }
-            }
-            Row(Modifier.cosModuleReveal(3).cosSwitchRow().fillMaxWidth().height(ColorOsPillHeight), spacedBy(ColorOsGap)) {
+            }}
+            Row(Modifier.cosModuleReveal(3).cosSwitchRow().fillMaxWidth().height(ColorOsPillHeight), spacedBy(ColorOsGap)) { CosModuleGlass(3) {
                 ColorOsRingerPill(Modifier.weight(1f).fillMaxHeight())
                 Box(Modifier.weight(1f).fillMaxHeight()) { sim?.let { ColorOsConnectionPill(it) } }
-            }
+            }}
         }
     }
 }
@@ -511,7 +511,7 @@ fun ColorOsTileGrid(tiles: List<TileViewModel>, modifier: Modifier = Modifier) {
     val pages = remember(tiles, rows) { tiles.chunked(ColorOsColumns * rows) }
     if (pages.isEmpty()) return
     val pager = rememberPagerState { pages.size }
-    Column(modifier.cosModuleReveal(4).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         // A single page has nothing to scroll; leave sideways swipes to the panel switch.
         HorizontalPager(
             state = pager,
@@ -523,11 +523,15 @@ fun ColorOsTileGrid(tiles: List<TileViewModel>, modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.Top,
         ) { page ->
             Column(Modifier.fillMaxWidth().padding(top = ColorOsGridHeadroom)) {
-                pages[page].chunked(ColorOsColumns).forEach { row ->
-                    Row(Modifier.fillMaxWidth().height(ColorOsTileRowHeight)) {
+                pages[page].chunked(ColorOsColumns).forEachIndexed { rowIndex, row ->
+                    Row(
+                        Modifier.cosModuleReveal(4 + rowIndex)
+                            .fillMaxWidth()
+                            .height(ColorOsTileRowHeight)
+                    ) { CosModuleGlass(4 + rowIndex) {
                         row.forEach { ColorOsTile(it, Modifier.weight(1f)) }
                         repeat(ColorOsColumns - row.size) { Spacer(Modifier.weight(1f)) }
-                    }
+                    }}
                 }
             }
         }

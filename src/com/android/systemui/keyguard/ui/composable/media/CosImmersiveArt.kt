@@ -163,10 +163,11 @@ internal fun CosImmersiveArt(
                             canvas.saveLayer(Rect(Offset.Zero, size), maskPaint)
                             drawRect(mask)
                         for (region in GlassBackdrop.regions.values) {
+                            val bounds = region.liveBounds()
                             drawRoundRect(
-                                Color.Black.copy(alpha = region.alpha),
-                                region.bounds.topLeft - origin,
-                                region.bounds.size,
+                                Color.Black.copy(alpha = region.liveAlpha()),
+                                bounds.topLeft - origin,
+                                bounds.size,
                                 CornerRadius(region.corner),
                             )
                         }
@@ -211,7 +212,7 @@ internal fun CosImmersiveArt(
                 rims.keys.retainAll(regions.keys)
                 for ((key, region) in regions) {
                     val rim = rims.getOrPut(key) { CosHooks.createRim() }
-                    drawGlass(region, region.bounds.topLeft - origin, rim)
+                    drawGlass(region, region.liveBounds().topLeft - origin, rim)
                 }
             }
         )
@@ -220,15 +221,17 @@ internal fun CosImmersiveArt(
 
 private fun DrawScope.drawGlass(region: GlassBackdrop.Region, at: Offset, rim: RuntimeShader?) {
     val size = region.bounds.size
+    val alpha = region.liveAlpha()
+    if (alpha <= 0f) return
     val shape =
         Path().apply { addRoundRect(RoundRect(Rect(at, size), CornerRadius(region.corner))) }
     clipPath(shape) {
-        drawRect(GlassOverlay, at, size, alpha = region.alpha, blendMode = BlendMode.Overlay)
-        drawRect(GlassDodge, at, size, alpha = region.alpha, blendMode = BlendMode.ColorDodge)
+        drawRect(GlassOverlay, at, size, alpha = alpha, blendMode = BlendMode.Overlay)
+        drawRect(GlassDodge, at, size, alpha = alpha, blendMode = BlendMode.ColorDodge)
     }
     if (rim != null) {
         CosHooks.updateRim(rim, size.width, size.height, region.corner, false, true)
-        translate(at.x, at.y) { drawRect(ShaderBrush(rim), size = size, alpha = region.alpha) }
+        translate(at.x, at.y) { drawRect(ShaderBrush(rim), size = size, alpha = alpha) }
     }
 }
 

@@ -15,6 +15,8 @@ import com.android.compose.animation.scene.TransitionBuilder
 import com.android.systemui.notifications.ui.composable.NotificationsShade
 import com.android.systemui.penguin.PANEL_SWITCH_FADE_IN_START
 import com.android.systemui.penguin.PANEL_SWITCH_FADE_OUT_END
+import com.android.systemui.penguin.SLIDE_SWITCH_FADE_IN_START
+import com.android.systemui.penguin.SLIDE_SWITCH_FADE_OUT_END
 import com.android.systemui.qs.ui.composable.QuickSettingsShade
 import kotlin.math.PI
 
@@ -37,6 +39,16 @@ fun TransitionBuilder.cosNotificationsToQuickSettingsSwitch() {
     translate(NotificationsShade.Elements.StatusBar, Edge.Start)
     translate(QuickSettingsShade.Elements.Panel, Edge.End)
     translate(QuickSettingsShade.Elements.StatusBar, Edge.End)
+    // Like turning a page: the panel being left fades as it slides away and the other one
+    // fades in as it slides in, so the two never read as empty halves of the screen.
+    fractionRange(end = SLIDE_SWITCH_FADE_OUT_END) {
+        fade(NotificationsShade.Elements.Panel)
+        fade(NotificationsShade.Elements.StatusBar)
+    }
+    fractionRange(start = SLIDE_SWITCH_FADE_IN_START) {
+        fade(QuickSettingsShade.Elements.Panel)
+        fade(QuickSettingsShade.Elements.StatusBar)
+    }
 }
 
 /**

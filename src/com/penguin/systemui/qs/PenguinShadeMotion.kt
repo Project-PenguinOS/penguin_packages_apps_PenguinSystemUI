@@ -16,6 +16,7 @@ import com.android.systemui.penguin.CosShadeSwitch
 import com.android.systemui.penguin.ShadeMotion
 import com.android.systemui.penguin.rememberCosFeature
 import com.android.systemui.qs.composefragment.effectiveQsPanelStyle
+import com.android.systemui.qs.shared.style.QsPanelStyle
 import com.android.systemui.qs.ui.composable.QuickSettingsShade
 import com.android.systemui.scene.shared.model.Overlays
 import com.android.systemui.scene.ui.composable.transitions.cosNotificationsToQuickSettingsSwitch
@@ -34,6 +35,7 @@ class PenguinShadeMotion @Inject constructor() : ShadeMotion {
     private var cos = false
     private var tabletSwitch = false
     private var stockMotion = false
+    private var cascade = false
 
     @Composable
     override fun key(): Any? {
@@ -44,7 +46,9 @@ class PenguinShadeMotion @Inject constructor() : ShadeMotion {
         // The Default and Stock styles draw AOSP's own panels, so they also reveal like AOSP
         // unless the COS shade is on.
         stockMotion = defaultQsStyle && !cos
-        return listOf(defaultQsStyle, cos, tabletSwitch)
+        // The ColorOS Control Centre unfolds module by module itself.
+        cascade = cos && style == QsPanelStyle.ColorOs
+        return listOf(defaultQsStyle, cos, tabletSwitch, cascade)
     }
 
     override fun useStockMotion(): Boolean = stockMotion
@@ -65,7 +69,7 @@ class PenguinShadeMotion @Inject constructor() : ShadeMotion {
 
     // Quick Settings reveals and dismisses exactly like the notification shade.
     override fun TransitionBuilder.toQuickSettingsShade(durationScale: Double) {
-        styledToQuickSettingsShadeTransition(durationScale = durationScale)
+        styledToQuickSettingsShadeTransition(durationScale = durationScale, cascade = cascade)
         if (cos) spec = cosSpring(0.2, durationScale)
     }
 
@@ -80,6 +84,7 @@ class PenguinShadeMotion @Inject constructor() : ShadeMotion {
         styledToNotificationsShadeTransition(
             durationScale = durationScale,
             enableSharedElements = enableSharedElements,
+            cascade = cos,
         )
         if (cos) spec = cosSpring(0.2, durationScale)
     }

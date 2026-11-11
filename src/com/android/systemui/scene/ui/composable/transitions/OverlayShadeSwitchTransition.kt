@@ -19,6 +19,7 @@ package com.android.systemui.scene.ui.composable.transitions
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.spring
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.android.compose.animation.scene.Edge
 import com.android.compose.animation.scene.ElementKey
@@ -46,8 +47,15 @@ fun TransitionBuilder.controlCentreReveal(panel: ElementKey) {
     translate(panel, y = 30.dp)
 }
 
+/**
+ * How far a pull opens a shade fully. The default, the screen height, leaves most of a normal pull
+ * showing almost nothing of it.
+ */
+val ShadeRevealDistance: Dp = 360.dp
+
 fun TransitionBuilder.oxygenPanelReveal(panel: ElementKey) {
-    fractionRange(start = 0.1f) { fade(panel) }
+    // Shown early in the pull so the panel is under the finger, not popping in at the end.
+    fractionRange(end = 0.4f) { fade(panel) }
     scaleDraw(panel, scaleX = 0.9f, scaleY = 0.9f)
     translate(panel, y = (-32).dp)
 }

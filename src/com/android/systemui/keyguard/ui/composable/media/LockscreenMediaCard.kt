@@ -90,11 +90,13 @@ import com.android.systemui.media.remedia.ui.viewmodel.MediaNavigationViewModel
 import com.android.systemui.media.remedia.ui.viewmodel.MediaSecondaryActionViewModel
 import com.android.systemui.media.remedia.ui.viewmodel.MediaViewModel
 import com.android.systemui.penguin.CosFeature
+import com.android.systemui.penguin.LockscreenStack
 import com.android.systemui.penguin.rememberCosFeature
 import com.android.systemui.qs.composefragment.LocalCosSeekColor
 import com.android.systemui.qs.composefragment.cosSeekGlow
 import com.android.systemui.qs.composefragment.cosStatusGlow
 import com.android.systemui.qs.composefragment.rememberCosMediaColor
+import com.android.systemui.qs.shared.style.GlassBackdrop
 import com.android.systemui.qs.shared.style.LiquidGlassSurface
 import com.android.systemui.qs.shared.style.LocalGlassBlurAlpha
 import com.android.systemui.qs.shared.style.glassBackdropRegion
@@ -200,7 +202,19 @@ private fun MediaCardBody(card: MediaCardViewModel, isSelected: Boolean) {
         ) {
         val immersive = cos && f > 0f
         if (immersive) {
-            Box(Modifier.matchParentSize().glassBackdropRegion(CardCorner))
+            // The card scrolls up and fades with the clock region as the expanded notification
+            // list scrolls, through a graphics layer the backdrop does not see.
+            Box(
+                Modifier.matchParentSize()
+                    .glassBackdropRegion(
+                        CardCorner,
+                        motion =
+                            GlassBackdrop.Motion(
+                                { -LockscreenStack.coverScroll },
+                                { 1f - LockscreenStack.clockCover },
+                            ),
+                    )
+            )
         } else {
             WallpaperBlur(
                 alpha = blurAlpha,
