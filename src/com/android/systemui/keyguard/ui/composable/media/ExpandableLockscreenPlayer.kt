@@ -82,6 +82,16 @@ constructor(iconsInteractor: NotificationIconsInteractor) : LockscreenPlayer {
     override val nowBarFraction: Float
         get() = LockscreenMediaExpansion.nowBarFraction
 
+    override val canFoldIntoNowBar: Boolean
+        get() =
+            with(LockscreenMediaExpansion) {
+                nowBarEnabled && mediaVisible && artwork != null && !minimized
+            }
+
+    override fun foldIntoNowBar() {
+        LockscreenMediaExpansion.minimize()
+    }
+
     @Composable
     override fun ArtGestures() {
         LockscreenArtGestures()

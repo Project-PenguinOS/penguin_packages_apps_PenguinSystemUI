@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.android.systemui.penguin.CosFeature
 import com.android.systemui.penguin.DepthSubject
+import com.android.systemui.penguin.LockscreenStack
 import com.android.systemui.penguin.rememberCosFeature
 import java.io.File
 import kotlin.math.roundToInt
@@ -311,8 +312,12 @@ fun LockscreenExpandedMediaArt(
             Modifier.offset { IntOffset(rect.left.roundToInt(), rect.top.roundToInt()) }
                 .size(size)
                 .graphicsLayer {
+                    // Like the player under it, the cover scrolls up and fades with the lock
+                    // screen notification list expanded in place.
+                    translationY = -LockscreenStack.coverScroll
                     this.alpha =
-                        lerp(1f, side.within(minSide * 0.6f, minSide), f) * coverAlpha * reveal()
+                        lerp(1f, side.within(minSide * 0.6f, minSide), f) * coverAlpha * reveal() *
+                            (1f - LockscreenStack.clockCover)
                 }
                 .clip(RoundedCornerShape(lerp(10f, 22f, f).dp))
                 .pointerInput(Unit) { detectTapGestures { state.collapse() } }
