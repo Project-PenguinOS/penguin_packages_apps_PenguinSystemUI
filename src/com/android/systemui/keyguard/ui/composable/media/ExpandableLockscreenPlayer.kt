@@ -39,6 +39,7 @@ import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.systemui.media.remedia.ui.compose.MediaUiBehavior
 import com.android.systemui.media.remedia.ui.viewmodel.MediaViewModel
@@ -205,8 +206,10 @@ constructor(iconsInteractor: NotificationIconsInteractor) : LockscreenPlayer {
         var stackTop by remember { mutableFloatStateOf(Float.NaN) }
         var slotTop by remember { mutableFloatStateOf(Float.NaN) }
         val stackBottomGap = with(LocalDensity.current) { StackBottomGap.toPx() }
+        // The card is moved down onto the stack, over the notifications laid out after it, so it is
+        // raised above them: otherwise their pull down handler takes every touch on its controls.
         Column(
-            Modifier.fillMaxWidth().offset {
+            Modifier.fillMaxWidth().zIndex(1f).offset {
                 val alone = (notificationsHeight - stackBottomGap).coerceAtLeast(0f)
                 val onStack =
                     if (stackTop.isNaN() || slotTop.isNaN()) alone
