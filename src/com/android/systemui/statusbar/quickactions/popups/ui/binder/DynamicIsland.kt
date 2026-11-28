@@ -169,6 +169,8 @@ constructor(
         private val dotParent: ViewGroup? =
             statusBar.findViewById(R.id.status_bar_end_side_content)
         private var dot: View? = null
+        /** Views this hid because the island covers them; only these are shown again. */
+        private val hidden = mutableSetOf<View>()
         private var pendingCheck: Runnable? = null
         private var lastBounds = Rect()
         var enabled = false
@@ -202,23 +204,54 @@ constructor(
             icons.postDelayed(runnable, 300L)
         }
 
+        /**
+         * Everything at the end of the status bar the island can reach: each icon in every icon
+         * group (the status icons, and the demo mode icons beside them), and the views beside the
+         * icons (network traffic, the user switcher).
+         */
+        private fun candidates(icons: StatusIconContainer, parent: ViewGroup): List<View> =
+            buildList {
+                for (i in 0 until parent.childCount) {
+                    val child = parent.getChildAt(i)
+                    if (child === dot) continue
+                    if (child.id != R.id.system_icons || child !is ViewGroup) {
+                        add(child)
+                        continue
+                    }
+                    for (j in 0 until child.childCount) {
+                        val group = child.getChildAt(j)
+                        if (group === icons || group.javaClass.simpleName == "DemoStatusIcons") {
+                            val icons = group as ViewGroup
+                            for (k in 0 until icons.childCount) add(icons.getChildAt(k))
+                        } else {
+                            add(group)
+                        }
+                    }
+                }
+            }
+
         private fun apply(icons: StatusIconContainer, parent: ViewGroup, islandBounds: Rect) {
             if (!enabled) return
             val childRect = Rect()
             val loc = IntArray(2)
             var anyOverlap = false
 
-            for (i in 0 until icons.childCount) {
-                val child = icons.getChildAt(i)
-                if (child.width == 0) continue
+            for (child in candidates(icons, parent)) {
+                // Gone views take no room; a view hidden here keeps its size.
+                if (child.width == 0 || child.visibility == View.GONE) continue
+                if (child.visibility == View.INVISIBLE && child !in hidden) continue
                 child.getLocationInWindow(loc)
                 childRect.set(loc[0], loc[1], loc[0] + child.width, loc[1] + child.height)
-                val overlaps = Rect.intersects(childRect, islandBounds)
-                val newVisibility = if (overlaps) View.INVISIBLE else View.VISIBLE
-                if (child.visibility != newVisibility) {
-                    child.visibility = newVisibility
+                val overlaps = !islandBounds.isEmpty && Rect.intersects(childRect, islandBounds)
+                if (overlaps) {
+                    if (child.visibility == View.VISIBLE) {
+                        child.visibility = View.INVISIBLE
+                        hidden += child
+                    }
+                    anyOverlap = true
+                } else if (hidden.remove(child)) {
+                    child.visibility = View.VISIBLE
                 }
-                if (overlaps) anyOverlap = true
             }
 
             // Added as a sibling of StatusIconContainer, not a child of it -- StatusIconContainer
@@ -238,15 +271,33 @@ constructor(
             if (dot.visibility != dotVisibility) {
                 dot.visibility = dotVisibility
             }
+            // The dot leads the end side, which is where the island reaches; move it out beside
+            // the island once it is laid out.
+            dot.post { placeDot(dot, islandBounds) }
+        }
+
+        private fun placeDot(dot: View, islandBounds: Rect) {
+            if (dot.visibility != View.VISIBLE || islandBounds.isEmpty) {
+                dot.translationX = 0f
+                return
+            }
+            val loc = IntArray(2)
+            dot.getLocationInWindow(loc)
+            val restingLeft = loc[0] - dot.translationX
+            val gap = 2f * dot.resources.displayMetrics.density
+            dot.translationX =
+                if (dot.layoutDirection == View.LAYOUT_DIRECTION_RTL) {
+                    minOf(0f, islandBounds.left - gap - (restingLeft + dot.width))
+                } else {
+                    maxOf(0f, islandBounds.right + gap - restingLeft)
+                }
         }
 
         fun reset() {
-            statusIcons?.let {
-                for (i in 0 until it.childCount) {
-                    it.getChildAt(i).visibility = View.VISIBLE
-                }
-            }
+            hidden.forEach { if (it.visibility == View.INVISIBLE) it.visibility = View.VISIBLE }
+            hidden.clear()
             dot?.visibility = View.GONE
+            dot?.translationX = 0f
         }
     }
 
